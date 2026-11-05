@@ -3,6 +3,8 @@ import { z } from "zod";
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   HMAC_KEY: z.string().min(32, "must be at least 32 characters"),
+  DATABASE_URL: z.string().startsWith("postgres", "must be a Postgres connection string"),
+  DIRECT_URL: z.string().startsWith("postgres", "must be a Postgres connection string"),
 });
 
 const parsed = envSchema.safeParse(process.env);
