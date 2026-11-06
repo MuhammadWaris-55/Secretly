@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake fixtures in unit tests"
+paths = ['''src/.*\.test\.ts$''']
