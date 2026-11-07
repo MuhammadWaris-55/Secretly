@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { CloneError, RepoTooLargeError } from "./errors";
 import type { RepoRef } from "./repo-url";
+import { buildChildEnv } from "./child-env";
 
 const execFileAsync = promisify(execFile);
 
@@ -14,25 +15,6 @@ const DEFAULT_MAX_BYTES = 500 * 1024 * 1024;
 export interface CloneOptions {
   timeoutMs?: number;
   maxBytes?: number;
-}
-
-// The child process gets only what git needs. Our own secrets
-// (HMAC_KEY, database URLs) are never passed to it.
-const ENV_ALLOWLIST = ["PATH", "SystemRoot", "TEMP", "TMP", "HOME", "USERPROFILE"];
-
-function buildGitEnv(): NodeJS.ProcessEnv {
-  const env: Record<string, string> = {
-    GIT_TERMINAL_PROMPT: "0", // never wait for a password
-    GIT_CONFIG_NOSYSTEM: "1", // ignore system-level git config
-    GCM_INTERACTIVE: "never", // no credential-manager popups on Windows
-  };
-  for (const key of ENV_ALLOWLIST) {
-    const value = process.env[key];
-    if (value !== undefined) env[key] = value;
-  }
-  // Next.js's type augmentation makes NODE_ENV a required key of ProcessEnv.
-  // We intentionally don't pass it to git, so we assert the type here.
-  return env as NodeJS.ProcessEnv;
 }
 
 /** Total size in bytes of all regular files under a directory (symlinks are skipped). */
@@ -90,7 +72,7 @@ export async function withClonedRepo<T>(
           repoDir,
         ],
         {
-          env: buildGitEnv(),
+          env: buildChildEnv(),
           timeout: timeoutMs,
           killSignal: "SIGKILL",
           maxBuffer: 1024 * 1024,
