@@ -22,3 +22,14 @@ export class RepoTooLargeError extends Error {
     this.name = "RepoTooLargeError";
   }
 }
+
+export class GitleaksError extends Error {
+  readonly reason: "timeout" | "output_too_large" | "not_installed" | "failed" | "bad_report";
+
+  constructor(reason: GitleaksError["reason"]) {
+    // Deliberately generic: never include gitleaks output, which may contain secrets.
+    super(`Gitleaks scan failed: ${reason}`);
+    this.name = "GitleaksError";
+    this.reason = reason;
+  }
+}

@@ -1,0 +1,4 @@
+title = "Secretly scanner rules"
+
+[extend]
+useDefault = true
