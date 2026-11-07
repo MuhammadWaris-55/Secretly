@@ -78,3 +78,27 @@ export function parseGitleaksReport(raw: string, hmacKey: string): ScanFinding[]
       a.commitDate.getTime() - b.commitDate.getTime() || a.filePath.localeCompare(b.filePath),
   );
 }
+
+const fingerprintReportSchema = z.array(z.object({ Secret: z.string().min(1) }));
+
+/**
+ * For the working-tree scan we only need to know WHICH secrets are present, so this
+ * returns fingerprints and nothing else. Same rules as above: the raw secret never
+ * leaves this function, and errors stay generic.
+ */
+export function parseFingerprints(raw: string, hmacKey: string): Set<string> {
+  const trimmed = raw.trim();
+  if (trimmed === "" || trimmed === "null") return new Set();
+
+  let json: unknown;
+  try {
+    json = JSON.parse(trimmed);
+  } catch {
+    throw new GitleaksError("bad_report");
+  }
+
+  const parsed = fingerprintReportSchema.safeParse(json);
+  if (!parsed.success) throw new GitleaksError("bad_report");
+
+  return new Set(parsed.data.map((entry) => fingerprintSecret(entry.Secret, hmacKey)));
+}

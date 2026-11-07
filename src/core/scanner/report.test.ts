@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GitleaksError } from "./errors";
 import { fingerprintSecret } from "./fingerprint";
-import { parseGitleaksReport } from "./report";
+import { parseFingerprints, parseGitleaksReport } from "./report";
 
 const FAKE_SECRET = "Zx9Qm2Lp7Vc4Rt8Yb3Nk6Hd1Fs5Jw0Ae";
 const KEY = "test-only-hmac-key-0000000000000000";
@@ -79,5 +79,27 @@ describe("parseGitleaksReport", () => {
   it("throws on an invalid date", () => {
     const report = [entry({ Date: "not a date" })];
     expect(() => parseGitleaksReport(JSON.stringify(report), KEY)).toThrow(GitleaksError);
+  });
+});
+
+describe("parseFingerprints", () => {
+  it("returns the HMAC fingerprint of each secret and nothing else", () => {
+    const report = [{ Secret: FAKE_SECRET, File: "a.ts", Commit: "", Date: "" }];
+    const result = parseFingerprints(JSON.stringify(report), KEY);
+    expect([...result]).toEqual([fingerprintSecret(FAKE_SECRET, KEY)]);
+    expect(JSON.stringify([...result])).not.toContain(FAKE_SECRET);
+  });
+
+  it("deduplicates identical secrets", () => {
+    const report = [{ Secret: FAKE_SECRET }, { Secret: FAKE_SECRET }];
+    expect(parseFingerprints(JSON.stringify(report), KEY).size).toBe(1);
+  });
+
+  it.each(["", "null", "[]"])("treats %j as no secrets", (raw) => {
+    expect(parseFingerprints(raw, KEY).size).toBe(0);
+  });
+
+  it("throws a generic error on invalid JSON", () => {
+    expect(() => parseFingerprints("{nope", KEY)).toThrow(GitleaksError);
   });
 });
