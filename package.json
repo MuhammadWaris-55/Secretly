@@ -17,7 +17,8 @@
     "db:schema-check": "tsx --env-file=.env.local scripts/schema-check.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clone:check": "tsx scripts/clone-check.ts"
+    "clone:check": "tsx scripts/clone-check.ts",
+    "scan:check": "tsx --env-file=.env.local scripts/scan-check.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs}": [
