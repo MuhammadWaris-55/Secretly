@@ -3,7 +3,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { buildChildEnv } from "./child-env";
 import { GitleaksError } from "./errors";
-import { parseGitleaksReport, type ScanFinding } from "./report";
+import { parseFingerprints, parseGitleaksReport, type ScanFinding } from "./report";
 
 const execFileAsync = promisify(execFile);
 
@@ -16,21 +16,18 @@ export interface GitleaksOptions {
   timeoutMs?: number;
 }
 
-/** Scans the full git history of an already-cloned repo. Returns safe findings only. */
-export async function scanGitHistory(
-  repoDir: string,
-  hmacKey: string,
-  options: GitleaksOptions = {},
-): Promise<ScanFinding[]> {
+type Mode = "git" | "dir";
+
+/** Runs gitleaks and returns the raw JSON report from stdout. Never returns or throws raw output. */
+async function runGitleaks(mode: Mode, target: string, options: GitleaksOptions): Promise<string> {
   const configPath = options.configPath ?? path.resolve(process.cwd(), "config", "gitleaks.toml");
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  let stdout: string;
   try {
-    ({ stdout } = await execFileAsync(
+    const { stdout } = await execFileAsync(
       "gitleaks",
       [
-        "git",
+        mode,
         "--config",
         configPath, // never use a config from the scanned repo
         "--gitleaks-ignore-path",
@@ -48,7 +45,7 @@ export async function scanGitHistory(
         "error",
         "--timeout",
         String(Math.ceil(timeoutMs / 1000)),
-        repoDir,
+        target,
       ],
       {
         env: buildChildEnv(),
@@ -57,7 +54,8 @@ export async function scanGitHistory(
         maxBuffer: MAX_REPORT_BYTES,
         windowsHide: true,
       },
-    ));
+    );
+    return stdout;
   } catch (error) {
     // Never forward the error object: it can carry stdout/stderr with secrets in it.
     const e = error as { killed?: boolean; code?: string };
@@ -66,6 +64,22 @@ export async function scanGitHistory(
     if (e.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") throw new GitleaksError("output_too_large");
     throw new GitleaksError("failed");
   }
+}
 
-  return parseGitleaksReport(stdout, hmacKey);
+/** Scans the full git history of an already-cloned repo. Returns safe findings only. */
+export async function scanGitHistory(
+  repoDir: string,
+  hmacKey: string,
+  options: GitleaksOptions = {},
+): Promise<ScanFinding[]> {
+  return parseGitleaksReport(await runGitleaks("git", repoDir, options), hmacKey);
+}
+
+/** Scans the checked-out files only. Returns the fingerprints of secrets present right now. */
+export async function scanWorkingTree(
+  repoDir: string,
+  hmacKey: string,
+  options: GitleaksOptions = {},
+): Promise<Set<string>> {
+  return parseFingerprints(await runGitleaks("dir", repoDir, options), hmacKey);
 }
