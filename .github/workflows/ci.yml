@@ -22,17 +22,30 @@ jobs:
       HMAC_KEY: ci-only-fake-hmac-key-not-a-secret-000000
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
-    steps:
-      - uses: actions/checkout@v4
+      steps:
+        - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
+        - uses: actions/setup-node@v4
+          with:
+            node-version-file: .nvmrc
+            cache: npm
 
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
-      - run: npm run format:check
-      - run: npm run build
+        - run: npm ci
+
+        - name: Install gitleaks
+          run: |
+            VERSION=8.30.1
+            ARCHIVE="gitleaks_${VERSION}_linux_x64.tar.gz"
+            BASE="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}"
+            curl -sSfL "${BASE}/${ARCHIVE}" -o "${ARCHIVE}"
+            curl -sSfL "${BASE}/gitleaks_${VERSION}_checksums.txt" -o checksums.txt
+            grep "${ARCHIVE}" checksums.txt | sha256sum --check
+            tar -xzf "${ARCHIVE}" gitleaks
+            sudo mv gitleaks /usr/local/bin/
+            gitleaks version
+
+        - run: npm run typecheck
+        - run: npm run lint
+        - run: npm test
+        - run: npm run format:check
+        - run: npm run build
