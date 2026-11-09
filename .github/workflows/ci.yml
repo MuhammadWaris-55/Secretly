@@ -26,6 +26,10 @@ jobs:
       GITHUB_CLIENT_SECRET: ci-fake-client-secret
       BETTER_AUTH_SECRET: ci-only-fake-auth-secret-not-a-secret-000000
       BETTER_AUTH_URL: http://localhost:3000
+      GITHUB_CLIENT_ID: ci-fake-client-id
+      GITHUB_CLIENT_SECRET: ci-fake-client-secret
+      BETTER_AUTH_SECRET: ci-only-fake-auth-secret-not-a-secret-000000
+      BETTER_AUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
 
