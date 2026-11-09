@@ -2,3 +2,23 @@ title = "Secretly scanner rules"
 
 [extend]
 useDefault = true
+
+[[rules]]
+id = "database-url-with-password"
+description = "Database connection string with an embedded password"
+# The captured group is the PASSWORD, so the fingerprint and masked preview are built
+# from the password only. The rest of the URL never becomes the "secret".
+regex = '''(?i)\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|rediss?|amqps?)://[^\s:/@'"`]*:([^\s@'"`]{6,})@[^\s'"`/]+'''
+secretGroup = 1
+keywords = ["postgres", "mysql", "mariadb", "mongodb", "redis", "amqp"]
+
+[[rules.allowlists]]
+description = "Obvious placeholders and variable references instead of real passwords"
+regexTarget = "secret"
+regexes = [
+  '''(?i)^(password|passwd|pass|pwd|postgres|mysql|root|admin|secret|changeme|change-me|example|your[-_]?password)$''',
+  '''^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$''',
+  '''^<[^>]*>$''',
+  '''^%.*$''',
+  '''^\*+$''',
+]
