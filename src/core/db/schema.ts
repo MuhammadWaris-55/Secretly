@@ -98,3 +98,4 @@ export type NewRepo = typeof repos.$inferInsert;
 export type Scan = typeof scans.$inferSelect;
 export type Finding = typeof findings.$inferSelect;
 export type NewFinding = typeof findings.$inferInsert;
+export * from "./auth-schema";
