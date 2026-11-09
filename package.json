@@ -18,8 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clone:check": "tsx scripts/clone-check.ts",
-    "scan:check": "tsx --env-file=.env.local scripts/scan-check.ts",
-    "rules:probe": "tsx scripts/rules-probe.ts"
+    "scan:check": "tsx --env-file=.env.local scripts/scan-check.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs}": [
