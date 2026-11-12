@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -60,6 +61,10 @@ export const scans = pgTable(
   (t) => [
     index("scans_repo_id_idx").on(t.repoId),
     index("scans_user_status_idx").on(t.userId, t.status),
+    // At most one queued or running scan per repo, enforced by the database.
+    uniqueIndex("scans_one_active_per_repo_uq")
+      .on(t.repoId)
+      .where(sql`${t.status} in ('queued', 'running')`),
   ],
 );
 
