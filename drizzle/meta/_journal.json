@@ -15,6 +15,13 @@
       "when": 1794208558265,
       "tag": "0001_nebulous_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794464287596,
+      "tag": "0002_scans-one-active-per-repo",
+      "breakpoints": true
     }
   ]
 }

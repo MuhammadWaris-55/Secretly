@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "scans_one_active_per_repo_uq" ON "scans" USING btree ("repo_id") WHERE "scans"."status" in ('queued', 'running');
