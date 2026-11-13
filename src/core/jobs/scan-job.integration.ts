@@ -148,6 +148,7 @@ it("retries transient failures, deduplicates findings, and preserves user-set st
       .where(eq(findings.repoId, repoId))
       .orderBy(findings.fingerprint);
   const initial = await listFindings();
+  expect(initial.map((row) => row.lastSeenScanId)).toEqual([scanId, scanId]);
   expect(initial.map((row) => row.commitDate)).toEqual([
     finding("fixed", 1).commitDate,
     finding("ignored", 1).commitDate,
@@ -169,6 +170,7 @@ it("retries transient failures, deduplicates findings, and preserves user-set st
   });
   await jobs.processScanJob(rescanId, hmacKey);
   const refreshed = await listFindings();
+  expect(refreshed.map((row) => row.lastSeenScanId)).toEqual([rescanId, rescanId]);
   expect(refreshed.map((row) => row.id)).toEqual(initial.map((row) => row.id));
   expect(refreshed.map(({ status, inHead }) => ({ status, inHead }))).toEqual([
     { status: "fixed", inHead: false },

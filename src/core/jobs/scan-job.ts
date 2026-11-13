@@ -89,13 +89,15 @@ async function runScan(database: NodePgDatabase, scanId: string, hmacKey: string
               maskedPreview: finding.maskedPreview,
               fingerprint: finding.fingerprint,
               inHead: finding.inHead,
+              lastSeenAt: now,
+              lastSeenScanId: scanId,
             })),
           )
           .onConflictDoUpdate({
             target: [findings.repoId, findings.fingerprint],
             // Refresh what a re-scan can learn. Never touch status: a finding the user
             // marked fixed or ignored must stay that way.
-            set: { lastSeenAt: now, inHead: sql`excluded.in_head` },
+            set: { lastSeenAt: now, lastSeenScanId: scanId, inHead: sql`excluded.in_head` },
           });
       }
 
