@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ScanRepoButton } from "@/components/scan-repo-button";
@@ -14,7 +15,8 @@ type ScanState = { status: "queued" | "running" | "done" | "failed"; findingsCou
 function describeScan(scan: ScanState | undefined): string {
   if (!scan) return "Not scanned";
   if (scan.status === "done") {
-    return scan.findingsCount === 0 ? "Clean" : `${scan.findingsCount} findings`;
+    if (scan.findingsCount === 0) return "No secrets detected";
+    return scan.findingsCount === 1 ? "1 finding" : `${scan.findingsCount} findings`;
   }
   return scan.status.charAt(0).toUpperCase() + scan.status.slice(1);
 }
@@ -62,7 +64,16 @@ async function Account() {
               const busy = scan?.status === "queued" || scan?.status === "running";
               return (
                 <li key={repo.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span>{repo.fullName}</span>
+                  <div className="min-w-0 space-y-1">
+                    <p className="break-all">{repo.fullName}</p>
+                    <Link
+                      href={`/dashboard/repos/${repo.id}`}
+                      aria-label={`View findings for ${repo.fullName}`}
+                      className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                    >
+                      View findings
+                    </Link>
+                  </div>
                   <span className="flex items-start gap-2">
                     <Badge variant={scan?.status === "failed" ? "destructive" : "secondary"}>
                       {describeScan(scan)}
