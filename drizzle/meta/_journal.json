@@ -22,6 +22,13 @@
       "when": 1794464287596,
       "tag": "0002_scans-one-active-per-repo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794575647753,
+      "tag": "0003_finding-last-seen-scan",
+      "breakpoints": true
     }
   ]
 }

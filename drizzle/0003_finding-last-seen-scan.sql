@@ -1,0 +1,2 @@
+ALTER TABLE "findings" ADD COLUMN "last_seen_scan_id" uuid;--> statement-breakpoint
+ALTER TABLE "findings" ADD CONSTRAINT "findings_last_seen_scan_id_scans_id_fk" FOREIGN KEY ("last_seen_scan_id") REFERENCES "public"."scans"("id") ON DELETE set null ON UPDATE no action;
