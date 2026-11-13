@@ -85,6 +85,13 @@ npm run test:integration
 docker stop secretly-test-db
 ```
 
+## Viewing findings
+
+Select **View findings** next to a repository in the dashboard. After a scan
+completes, the page shows masked previews, where findings were detected, and
+remediation guidance. Findings retained from earlier scans are labeled
+**Previously detected** when the latest completed scan did not detect them.
+
 ## Project structure
 
 ```
