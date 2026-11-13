@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -26,16 +26,15 @@ async function RepositoryFindings({ params }: Props) {
     .where(ownerFilter);
   if (!repo) notFound();
 
-  // Older workers used the database insert time for a new finding's lastSeenAt.
-  const [latestScan] = await db
-    .select({ startedAt: scans.startedAt })
+  const latestScan = db
+    .select({ id: scans.id, startedAt: scans.startedAt })
     .from(scans)
     .where(
       and(eq(scans.repoId, id.data), eq(scans.userId, session.user.id), eq(scans.status, "done")),
     )
-    .orderBy(desc(scans.finishedAt), desc(scans.createdAt))
-    .limit(1);
-  const latestScanStart = latestScan?.startedAt ?? repo.lastScannedAt;
+    .orderBy(desc(scans.finishedAt), desc(scans.createdAt), desc(scans.id))
+    .limit(1)
+    .as("latest_scan");
 
   const entries = await db
     .select({
@@ -46,11 +45,16 @@ async function RepositoryFindings({ params }: Props) {
       commitSha: findings.commitSha,
       maskedPreview: findings.maskedPreview,
       inHead: findings.inHead,
-      lastSeenAt: findings.lastSeenAt,
+      seenInLatestScan: sql<boolean>`coalesce(
+        case when ${findings.lastSeenScanId} is not null
+          then ${findings.lastSeenScanId} = ${latestScan.id}
+          else ${findings.lastSeenAt} >= coalesce(${latestScan.startedAt}, ${repos.lastScannedAt})
+        end, false)`,
       status: findings.status,
     })
     .from(findings)
     .innerJoin(repos, eq(findings.repoId, repos.id))
+    .leftJoin(latestScan, sql`true`)
     .where(ownerFilter)
     .orderBy(desc(findings.lastSeenAt), findings.id);
 
@@ -70,12 +74,11 @@ async function RepositoryFindings({ params }: Props) {
         <ul className="space-y-3">
           {entries.map((finding) => {
             const guide = getSecretRemediation(finding.ruleId);
-            const location =
-              latestScanStart && finding.lastSeenAt >= latestScanStart
-                ? finding.inHead
-                  ? "Detected in current code"
-                  : "Detected in Git history only"
-                : "Previously detected";
+            const location = finding.seenInLatestScan
+              ? finding.inHead
+                ? "Detected in current code"
+                : "Detected in Git history only"
+              : "Previously detected";
 
             return (
               <li key={finding.id} className="space-y-3 rounded-lg border p-5">

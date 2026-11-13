@@ -88,6 +88,7 @@ export const findings = pgTable(
     status: findingStatus("status").notNull().default("open"),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenScanId: uuid("last_seen_scan_id").references(() => scans.id, { onDelete: "set null" }),
     fixedAt: timestamp("fixed_at", { withTimezone: true }),
     notifiedAt: timestamp("notified_at", { withTimezone: true }),
   },
