@@ -72,6 +72,19 @@ Set equivalent CPU, memory, and shutdown limits on the hosting platform. The
 worker uses pg-boss graceful shutdown on SIGTERM or SIGINT, allowing up to 15
 minutes for active work to finish before pg-boss fails or retries unfinished jobs.
 
+## Postgres integration tests
+
+GitHub Actions runs `npm run test:integration` with a disposable Postgres service.
+For a local run, start a separate database and point `TEST_DATABASE_URL` at it.
+The suite applies the committed migrations and uses synthetic scanner results.
+
+```powershell
+docker run --rm --name secretly-test-db -e POSTGRES_DB=secretly_test -e POSTGRES_PASSWORD=secretly-test-only -p 127.0.0.1:55432:5432 -d postgres:18
+$env:TEST_DATABASE_URL = "postgresql://postgres:secretly-test-only@127.0.0.1:55432/secretly_test"
+npm run test:integration
+docker stop secretly-test-db
+```
+
 ## Project structure
 
 ```

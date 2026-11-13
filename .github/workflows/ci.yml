@@ -16,6 +16,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: secretly_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: secretly-test-only
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d secretly_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       # Obviously fake values so the build can pass env validation.
       # Real secrets never go in this file.
@@ -51,5 +65,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - run: npm run test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:secretly-test-only@127.0.0.1:55432/secretly_test
       - run: npm run format:check
       - run: npm run build
