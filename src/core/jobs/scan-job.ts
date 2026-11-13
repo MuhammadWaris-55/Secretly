@@ -1,6 +1,9 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import { Client } from "pg";
 import { db } from "@/core/db/client";
 import { findings, repos, scans } from "@/core/db/schema";
+import { env } from "@/core/env";
 import { scanRepo } from "@/core/scanner/scan-repo";
 import { dedupeByFingerprint } from "./dedupe";
 import { ScanAttemptError, classifyScanError } from "./failure";
@@ -8,8 +11,12 @@ import { ScanAttemptError, classifyScanError } from "./failure";
 const INSERT_BATCH_SIZE = 500;
 
 /** Marks an unfinished scan as failed. A scan that already finished is never touched. */
-export async function failScan(scanId: string, message: string): Promise<void> {
-  await db
+export async function failScan(
+  scanId: string,
+  message: string,
+  database: Pick<typeof db, "update"> = db,
+): Promise<void> {
+  await database
     .update(scans)
     .set({ status: "failed", finishedAt: new Date(), error: message })
     .where(and(eq(scans.id, scanId), inArray(scans.status, ["queued", "running"])));
@@ -21,8 +28,22 @@ export async function failScan(scanId: string, message: string): Promise<void> {
  * Throws only for failures worth retrying.
  */
 export async function processScanJob(scanId: string, hmacKey: string): Promise<void> {
-  // Claim: queued -> running in one statement. A finished or missing scan is skipped.
-  const [claimed] = await db
+  // Use a direct session so transaction pooling cannot detach the lock between queries.
+  const client = new Client({ connectionString: env.DIRECT_URL, connectionTimeoutMillis: 5000 });
+  // An idle disconnect can happen while Gitleaks runs. Subsequent queries then fail and retry.
+  client.on("error", () => {});
+  try {
+    await client.connect();
+    // Closing the session releases the lock on every path, including worker crashes.
+    await client.query("select pg_advisory_lock(hashtextextended($1, 0))", [scanId.toLowerCase()]);
+    await runScan(drizzle(client), scanId, hmacKey);
+  } finally {
+    await client.end();
+  }
+}
+
+async function runScan(database: NodePgDatabase, scanId: string, hmacKey: string): Promise<void> {
+  const [claimed] = await database
     .update(scans)
     .set({ status: "running", startedAt: new Date() })
     .where(and(eq(scans.id, scanId), inArray(scans.status, ["queued", "running"])))
@@ -31,13 +52,13 @@ export async function processScanJob(scanId: string, hmacKey: string): Promise<v
 
   try {
     // The repo must belong to the same user as the scan.
-    const [repo] = await db
+    const [repo] = await database
       .select({ id: repos.id, fullName: repos.fullName })
       .from(repos)
       .where(and(eq(repos.id, claimed.repoId), eq(repos.userId, claimed.userId)))
       .limit(1);
     if (!repo) {
-      await failScan(scanId, "Repository not found.");
+      await failScan(scanId, "Repository not found.", database);
       return;
     }
 
@@ -46,7 +67,13 @@ export async function processScanJob(scanId: string, hmacKey: string): Promise<v
     const now = new Date();
 
     // Findings, repo info and the scan's final state are saved together or not at all.
-    await db.transaction(async (tx) => {
+    await database.transaction(async (tx) => {
+      const [finished] = await tx
+        .update(scans)
+        .set({ status: "done", finishedAt: now, findingsCount: unique.length, error: null })
+        .where(and(eq(scans.id, scanId), eq(scans.status, "running")))
+        .returning({ id: scans.id });
+      if (!finished) return;
       for (let start = 0; start < unique.length; start += INSERT_BATCH_SIZE) {
         const batch = unique.slice(start, start + INSERT_BATCH_SIZE);
         await tx
@@ -76,16 +103,11 @@ export async function processScanJob(scanId: string, hmacKey: string): Promise<v
         .update(repos)
         .set({ lastScannedSha: result.headSha, lastScannedAt: now })
         .where(eq(repos.id, repo.id));
-
-      await tx
-        .update(scans)
-        .set({ status: "done", finishedAt: now, findingsCount: unique.length, error: null })
-        .where(eq(scans.id, scanId));
     });
   } catch (error) {
     const failure = classifyScanError(error);
     if (failure.permanent) {
-      await failScan(scanId, failure.message);
+      await failScan(scanId, failure.message, database);
       return;
     }
     throw new ScanAttemptError(error);
