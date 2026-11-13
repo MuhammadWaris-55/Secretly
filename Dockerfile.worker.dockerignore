@@ -1,0 +1,11 @@
+**
+!package.json
+!package-lock.json
+!tsconfig.json
+!config/
+!config/gitleaks.toml
+!src/
+!src/core/
+!src/core/**
+!src/worker/
+!src/worker/**
