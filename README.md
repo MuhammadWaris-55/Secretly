@@ -91,6 +91,8 @@ Select **View findings** next to a repository in the dashboard. After a scan
 completes, the page shows masked previews, where findings were detected, and
 remediation guidance. Findings retained from earlier scans are labeled
 **Previously detected** when the latest completed scan did not detect them.
+Use the **Status** menu to mark a finding fixed, ignored, or a false positive.
+Choose **Open** to reopen it. Rescans preserve your choice.
 
 ## Project structure
 

@@ -152,10 +152,13 @@ it("retries transient failures, deduplicates findings, and preserves user-set st
     finding("fixed", 1).commitDate,
     finding("ignored", 1).commitDate,
   ]);
+  const { setOwnedFindingStatus } = await import("@/core/db/finding-status");
   for (const row of initial) {
+    const status = row.fingerprint === "fixed" ? "fixed" : "ignored";
+    expect(await setOwnedFindingStatus(owner, repoId, row.id, status)).toBe(true);
     await database.db
       .update(findings)
-      .set({ status: row.fingerprint === "fixed" ? "fixed" : "ignored", lastSeenAt: new Date(0) })
+      .set({ lastSeenAt: new Date(0) })
       .where(eq(findings.id, row.id));
   }
   const rescanId = await enqueue(repoId);
@@ -173,6 +176,34 @@ it("retries transient failures, deduplicates findings, and preserves user-set st
   ]);
   expect(refreshed.every((row) => row.lastSeenAt.getTime() > 0)).toBe(true);
   expect(await readScan(rescanId)).toMatchObject({ status: "done", findingsCount: 2 });
+});
+
+it("restricts status changes to the owner and matching repository, and supports reopening", async () => {
+  const { repoId } = await fixture();
+  const other = await fixture("example/other");
+  const [row] = await database.db
+    .insert(findings)
+    .values({ repoId, ...finding("status-change", 1) })
+    .returning();
+  if (!row) throw new Error("Expected a finding");
+
+  const { setOwnedFindingStatus } = await import("@/core/db/finding-status");
+  const readFinding = async () => {
+    const [current] = await database.db.select().from(findings).where(eq(findings.id, row.id));
+    return current;
+  };
+  expect(await setOwnedFindingStatus("another-user", repoId, row.id, "fixed")).toBe(false);
+  expect(await setOwnedFindingStatus(owner, other.repoId, row.id, "fixed")).toBe(false);
+  expect(await readFinding()).toMatchObject({ status: "open", fixedAt: null });
+  expect(await setOwnedFindingStatus(owner, repoId, row.id, "fixed")).toBe(true);
+  const fixed = await readFinding();
+  expect(fixed).toMatchObject({ status: "fixed", fixedAt: expect.any(Date) });
+  expect(await setOwnedFindingStatus(owner, repoId, row.id, "fixed")).toBe(true);
+  expect((await readFinding())?.fixedAt).toEqual(fixed?.fixedAt);
+  expect(await setOwnedFindingStatus(owner, repoId, row.id, "false_positive")).toBe(true);
+  expect(await readFinding()).toMatchObject({ status: "false_positive", fixedAt: null });
+  expect(await setOwnedFindingStatus(owner, repoId, row.id, "open")).toBe(true);
+  expect(await readFinding()).toMatchObject({ status: "open", fixedAt: null });
 });
 
 it("fails permanent errors immediately and leaves the final state intact on redelivery", async () => {

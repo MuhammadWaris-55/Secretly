@@ -8,13 +8,7 @@ import { db } from "@/core/db/client";
 import { findings, repos, scans } from "@/core/db/schema";
 import { getSecretRemediation } from "@/core/playbooks/secret-remediation";
 import { getSession } from "@/lib/session";
-
-const statusLabels = {
-  open: "Open",
-  fixed: "Fixed",
-  ignored: "Ignored",
-  false_positive: "False positive",
-};
+import { FindingStatusControl } from "./finding-status-control";
 
 type Props = { params: Promise<{ repoId: string }> };
 
@@ -89,7 +83,6 @@ async function RepositoryFindings({ params }: Props) {
                   <h2 className="text-base font-semibold">{guide.title}</h2>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="secondary">{location}</Badge>
-                    <Badge variant="outline">{statusLabels[finding.status]}</Badge>
                   </div>
                 </div>
                 <p className="text-sm break-all text-muted-foreground">
@@ -117,6 +110,11 @@ async function RepositoryFindings({ params }: Props) {
                     </li>
                   </ol>
                 </details>
+                <FindingStatusControl
+                  repoId={id.data}
+                  findingId={finding.id}
+                  status={finding.status}
+                />
               </li>
             );
           })}
