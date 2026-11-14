@@ -94,6 +94,18 @@ remediation guidance. Findings retained from earlier scans are labeled
 Use the **Status** menu to mark a finding fixed, ignored, or a false positive.
 Choose **Open** to reopen it. Rescans preserve your choice.
 
+## Email alerts
+
+Apply the committed migrations, then open **Dashboard → Email alerts** to see
+the sample email. Users with a verified account email can opt in and return
+to the same page to unsubscribe.
+
+To enable delivery, set `RESEND_API_KEY`, `EMAIL_FROM` (a sender on a verified
+Resend domain), and `BETTER_AUTH_URL` (the app's public URL) in the worker
+environment. Alerts group newly detected fingerprints by scan and include up to
+five masked previews. Existing findings do not generate alerts on repeat scans.
+Delivery retries for up to 23 hours.
+
 ## Project structure
 
 ```
