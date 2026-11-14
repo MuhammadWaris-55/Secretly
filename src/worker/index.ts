@@ -1,5 +1,6 @@
 import { once } from "node:events";
 import { createServer } from "node:http";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { createWorkerBoss, ensureQueues } from "@/core/jobs/boss";
 import { SCAN_FAILED_AFTER_RETRIES } from "@/core/jobs/failure";
@@ -24,6 +25,27 @@ async function main(): Promise<void> {
   const { env } = await import("@/core/env");
   const { pool } = await import("@/core/db/client");
   const { failScan, processScanJob } = await import("@/core/jobs/scan-job");
+  const { deliverNextAlert } = await import("@/core/jobs/alert-email");
+  const emailConfig = process.env.RESEND_API_KEY
+    ? z.object({ apiKey: z.string().min(1), from: z.string().min(1), baseUrl: z.httpUrl() }).parse({
+        apiKey: process.env.RESEND_API_KEY,
+        from: process.env.EMAIL_FROM,
+        baseUrl: process.env.BETTER_AUTH_URL,
+      })
+    : undefined;
+  const emailStop = new AbortController();
+  let emailTask: Promise<void> | undefined;
+
+  async function pollEmail(config: NonNullable<typeof emailConfig>) {
+    while (!emailStop.signal.aborted) {
+      try {
+        await deliverNextAlert(config);
+      } catch {
+        logger.error("Could not process email alerts");
+      }
+      await delay(5000, undefined, { signal: emailStop.signal }).catch(() => undefined);
+    }
+  }
 
   const boss = createWorkerBoss({
     connectionString: env.DIRECT_URL,
@@ -90,6 +112,7 @@ async function main(): Promise<void> {
       }
     });
     if (!stopping) {
+      if (emailConfig) emailTask = pollEmail(emailConfig);
       ready = true;
       logger.info({ port }, "Scan worker ready");
     }
@@ -101,6 +124,7 @@ async function main(): Promise<void> {
     if (stopping) return;
     stopping = true;
     ready = false;
+    emailStop.abort();
     logger.info("Scan worker stopping");
     const deadline = setTimeout(() => {
       logger.error("Scan worker shutdown deadline exceeded");
@@ -109,6 +133,7 @@ async function main(): Promise<void> {
     try {
       await startup.catch(() => undefined);
       await boss.stop({ graceful: true, timeout: DRAIN_MS });
+      await emailTask;
     } finally {
       try {
         await Promise.all([

@@ -52,6 +52,12 @@ async function Account() {
       <div className="flex flex-wrap gap-3">
         <SyncReposButton />
         <SignOutButton />
+        <Link
+          href="/dashboard/email-alerts"
+          className="self-center text-sm underline underline-offset-4"
+        >
+          Email alerts
+        </Link>
       </div>
       <section className="flex flex-col gap-2">
         <h2 className="text-xl font-semibold">Your repositories ({myRepos.length})</h2>
