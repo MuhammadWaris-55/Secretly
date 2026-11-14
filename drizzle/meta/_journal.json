@@ -29,6 +29,13 @@
       "when": 1794575647753,
       "tag": "0003_finding-last-seen-scan",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794638176329,
+      "tag": "0004_email-alerts",
+      "breakpoints": true
     }
   ]
 }
