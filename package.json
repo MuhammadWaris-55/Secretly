@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently --kill-others --names web,worker \"npm:dev:web\" \"npm:dev:worker\"",
+    "dev:web": "next dev",
+    "dev:worker": "node --env-file=.env.local --import tsx src/worker/index.ts --local",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -55,6 +57,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^10.0.7",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",

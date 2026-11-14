@@ -40,7 +40,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 | Command                | What it does                    |
 | ---------------------- | ------------------------------- |
-| `npm run dev`          | Start the dev server            |
+| `npm run dev`          | Start the dev server and worker |
+| `npm run dev:web`      | Start only the dev server       |
+| `npm run dev:worker`   | Start only the local worker     |
 | `npm run build`        | Production build                |
 | `npm run lint`         | ESLint                          |
 | `npm run typecheck`    | TypeScript check (no emit)      |
@@ -57,9 +59,11 @@ as the app. It creates or updates its queues at startup and immediately begins
 consuming jobs from the configured database. Set `PORT` to override the default of 3001. `GET /healthz` returns 200 after both queue handlers register and 503 during
 startup and shutdown.
 
-For local development with Node 24, Git, and Gitleaks installed, run
-`node --env-file=.env.local --import tsx src/worker/index.ts`. With the worker
-variables already in the process environment, run `npm run worker`.
+For local development with Node 24, Git, and Gitleaks installed, use `npm run dev`
+and wait for **Scan worker ready**. The worker reads `.env.local` and starts
+processing queued scans. Use `npm run dev:web` if you only need the web app,
+or `npm run dev:worker` to start the local worker separately. The local worker
+uses port 3001 for its health endpoint by default. Override it with `WORKER_PORT`.
 
 For a containerized worker, supply the three worker variables in a runtime env file.
 
