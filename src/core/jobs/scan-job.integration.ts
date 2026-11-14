@@ -3,7 +3,14 @@ import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { isUniqueViolation } from "@/core/db/errors";
-import { findings, repos, scans } from "@/core/db/schema";
+import {
+  emailAlertSubscriptions,
+  findings,
+  repos,
+  scanEmails,
+  scans,
+  user,
+} from "@/core/db/schema";
 import { CloneError, RepoTooLargeError } from "@/core/scanner/errors";
 import { scanRepo, type RepoScanResult } from "@/core/scanner/scan-repo";
 import { createWorkerBoss, ensureQueues } from "./boss";
@@ -206,6 +213,54 @@ it("restricts status changes to the owner and matching repository, and supports 
   expect(await readFinding()).toMatchObject({ status: "false_positive", fixedAt: null });
   expect(await setOwnedFindingStatus(owner, repoId, row.id, "open")).toBe(true);
   expect(await readFinding()).toMatchObject({ status: "open", fixedAt: null });
+});
+
+it("queues one email for new fingerprints and suppresses delivery after unsubscribe", async () => {
+  const { repoId, scanId } = await fixture();
+  const email = "fixture@example.invalid";
+  await database.db.insert(user).values({ id: owner, name: "Fixture", email, emailVerified: true });
+  try {
+    await database.db.insert(emailAlertSubscriptions).values({ userId: owner });
+    const result = { repo: repoRef, headSha, findings: [finding("new", 1), finding("new", 2)] };
+    scan.mockResolvedValue(result);
+    await jobs.processScanJob(scanId, hmacKey);
+    await jobs.processScanJob(await enqueue(repoId), hmacKey);
+    expect(await database.db.select().from(scanEmails)).toMatchObject([
+      { scanId, count: 1, previews: ["************"] },
+    ]);
+
+    const { deliverNextAlert } = await import("./alert-email");
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 503 }));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      const config = {
+        apiKey: "test-key",
+        from: "alerts@example.invalid",
+        baseUrl: "https://secretly.example",
+      };
+      await deliverNextAlert(config);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch.mock.calls[0]?.[1]).toMatchObject({
+        headers: { "Idempotency-Key": `scan-alert/${scanId}` },
+      });
+      await deliverNextAlert(config);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await database.db
+        .delete(emailAlertSubscriptions)
+        .where(eq(emailAlertSubscriptions.userId, owner));
+      await database.db
+        .update(scanEmails)
+        .set({ nextAttemptAt: new Date(0) })
+        .where(eq(scanEmails.scanId, scanId));
+      await deliverNextAlert(config);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(await database.db.select().from(scanEmails)).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  } finally {
+    await database.db.delete(user).where(eq(user.id, owner));
+  }
 });
 
 it("fails permanent errors immediately and leaves the final state intact on redelivery", async () => {

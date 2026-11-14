@@ -2,7 +2,14 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Client } from "pg";
 import { db } from "@/core/db/client";
-import { findings, repos, scans } from "@/core/db/schema";
+import {
+  emailAlertSubscriptions,
+  findings,
+  repos,
+  scanEmails,
+  scans,
+  user,
+} from "@/core/db/schema";
 import { env } from "@/core/env";
 import { scanRepo } from "@/core/scanner/scan-repo";
 import { dedupeByFingerprint } from "./dedupe";
@@ -74,8 +81,35 @@ async function runScan(database: NodePgDatabase, scanId: string, hmacKey: string
         .where(and(eq(scans.id, scanId), eq(scans.status, "running")))
         .returning({ id: scans.id });
       if (!finished) return;
+      const [subscription] = await tx
+        .select({ userId: emailAlertSubscriptions.userId })
+        .from(emailAlertSubscriptions)
+        .innerJoin(user, eq(user.id, emailAlertSubscriptions.userId))
+        .where(and(eq(user.id, claimed.userId), eq(user.emailVerified, true)));
+      let count = 0;
+      const previews: string[] = [];
       for (let start = 0; start < unique.length; start += INSERT_BATCH_SIZE) {
         const batch = unique.slice(start, start + INSERT_BATCH_SIZE);
+        if (subscription) {
+          const existing = await tx
+            .select({ fingerprint: findings.fingerprint })
+            .from(findings)
+            .where(
+              and(
+                eq(findings.repoId, repo.id),
+                inArray(
+                  findings.fingerprint,
+                  batch.map((finding) => finding.fingerprint),
+                ),
+              ),
+            );
+          const seen = new Set(existing.map((finding) => finding.fingerprint));
+          for (const finding of batch) {
+            if (seen.has(finding.fingerprint)) continue;
+            count++;
+            if (previews.length < 5) previews.push(finding.maskedPreview);
+          }
+        }
         await tx
           .insert(findings)
           .values(
@@ -100,6 +134,8 @@ async function runScan(database: NodePgDatabase, scanId: string, hmacKey: string
             set: { lastSeenAt: now, lastSeenScanId: scanId, inHead: sql`excluded.in_head` },
           });
       }
+
+      if (count > 0) await tx.insert(scanEmails).values({ scanId, count, previews });
 
       await tx
         .update(repos)

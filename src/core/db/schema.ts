@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -10,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { user } from "./auth-schema";
 
 export const scanStatus = pgEnum("scan_status", ["queued", "running", "done", "failed"]);
 export const findingStatus = pgEnum("finding_status", [
@@ -104,4 +106,25 @@ export type NewRepo = typeof repos.$inferInsert;
 export type Scan = typeof scans.$inferSelect;
 export type Finding = typeof findings.$inferSelect;
 export type NewFinding = typeof findings.$inferInsert;
+export const emailAlertSubscriptions = pgTable("email_alert_subscriptions", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  subscribedAt: timestamp("subscribed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const scanEmails = pgTable(
+  "scan_emails",
+  {
+    scanId: uuid("scan_id")
+      .primaryKey()
+      .references(() => scans.id, { onDelete: "cascade" }),
+    count: integer("count").notNull(),
+    previews: jsonb("previews").$type<string[]>().notNull(),
+    ...timestamps,
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("scan_emails_next_attempt_idx").on(t.nextAttemptAt)],
+);
+
 export * from "./auth-schema";
