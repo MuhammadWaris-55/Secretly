@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EnvValidationError } from "./env-validation-error";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -14,7 +15,10 @@ if (!parsed.success) {
   const problems = parsed.error.issues
     .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
     .join("\n");
-  throw new Error(`Invalid environment variables:\n${problems}`);
+  throw new EnvValidationError(
+    parsed.error.issues.map((issue) => issue.path.join(".")),
+    `Invalid environment variables:\n${problems}`,
+  );
 }
 
 export const env = parsed.data;

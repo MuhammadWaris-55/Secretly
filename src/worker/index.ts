@@ -2,6 +2,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
+import { EnvValidationError } from "@/core/env-validation-error";
 import { createWorkerBoss, ensureQueues } from "@/core/jobs/boss";
 import { SCAN_FAILED_AFTER_RETRIES } from "@/core/jobs/failure";
 import {
@@ -11,28 +12,33 @@ import {
   scanJobSchema,
 } from "@/core/jobs/queues";
 import { logger } from "./logger";
+import { readWorkerEmailConfig } from "./config";
 
 const DRAIN_MS = SCAN_QUEUE_SETTINGS.expireInSeconds * 1000;
 const SHUTDOWN_LIMIT_MS = DRAIN_MS + 5000;
 
 async function main(): Promise<void> {
-  const port = z.coerce
+  const portVariable =
+    process.argv.includes("--local") || process.env.WORKER_PORT !== undefined
+      ? "WORKER_PORT"
+      : "PORT";
+  const portResult = z.coerce
     .number()
     .int()
     .min(1)
     .max(65535)
-    .parse(process.env.PORT ?? "3001");
+    .safeParse(process.env[portVariable] ?? "3001");
+  if (!portResult.success) {
+    throw new EnvValidationError([portVariable], "Invalid worker port");
+  }
+  const port = portResult.data;
   const { env } = await import("@/core/env");
   const { pool } = await import("@/core/db/client");
   const { failScan, processScanJob } = await import("@/core/jobs/scan-job");
   const { deliverNextAlert } = await import("@/core/jobs/alert-email");
-  const emailConfig = process.env.RESEND_API_KEY
-    ? z.object({ apiKey: z.string().min(1), from: z.string().min(1), baseUrl: z.httpUrl() }).parse({
-        apiKey: process.env.RESEND_API_KEY,
-        from: process.env.EMAIL_FROM,
-        baseUrl: process.env.BETTER_AUTH_URL,
-      })
-    : undefined;
+  const { config: emailConfig, invalid } = readWorkerEmailConfig(process.env);
+  if (invalid.length)
+    logger.warn({ variables: invalid }, "Email delivery disabled due to invalid configuration");
   const emailStop = new AbortController();
   let emailTask: Promise<void> | undefined;
 
@@ -165,7 +171,11 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch(() => {
-  logger.error("Invalid scan worker configuration");
+void main().catch((error: unknown) => {
+  if (error instanceof EnvValidationError) {
+    logger.error({ variables: error.variables }, "Invalid scan worker configuration");
+  } else {
+    logger.error("Scan worker initialization failed");
+  }
   process.exitCode = 1;
 });
