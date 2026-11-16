@@ -1,0 +1,101 @@
+.secretly-workspace {
+  --background: #f4f2eb;
+  --foreground: #22241e;
+  --card: #fcfaf4;
+  --card-foreground: #22241e;
+  --muted: #ece9df;
+  --muted-foreground: #55584e;
+  --border: #d4d2c5;
+  --input: #b9bbaf;
+  --ring: #626d44;
+  --primary: #292e22;
+  --primary-foreground: #f6f5ef;
+  --secondary: #ece9df;
+  --secondary-foreground: #33372c;
+  --destructive: #8d3225;
+  flex: 1;
+  background: var(--background);
+  color: var(--foreground);
+  color-scheme: light;
+}
+
+.secretly-workspace-width {
+  width: min(100% - 2rem, 69rem);
+  margin-inline: auto;
+}
+
+.secretly-workspace-header {
+  border-bottom: 1px solid var(--border);
+}
+
+.secretly-workspace-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.secretly-workspace :is(a, button, select, summary):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.secretly-workspace-panel {
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--card);
+  box-shadow: 0 3px 0 #e1ded2;
+}
+
+.secretly-workspace-inset {
+  border: 1px solid #414739;
+  border-radius: 0.55rem;
+  background: #22261e;
+  color: #f4f5ee;
+}
+
+.secretly-scan-state {
+  color: #515648;
+}
+
+.secretly-scan-state[data-state="running"],
+.secretly-scan-state[data-state="done"] {
+  background: #e4edce;
+  color: #354520;
+}
+
+.secretly-scan-state[data-state="findings"],
+.secretly-scan-state[data-state="queued"] {
+  background: #f4e7ca;
+  color: #634818;
+}
+
+.secretly-scan-state[data-state="failed"] {
+  background: #f5e0da;
+  color: #852f29;
+}
+
+.secretly-workspace-row:focus-within {
+  background: #f5f4e9;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .secretly-workspace-row {
+    transition: background-color 170ms ease;
+  }
+
+  .secretly-scan-state {
+    animation: secretly-scan-appear 200ms ease-out both;
+  }
+}
+
+@media (hover: hover) {
+  .secretly-workspace-row:hover {
+    background: #f5f4e9;
+  }
+}
+
+@keyframes secretly-scan-appear {
+  from {
+    opacity: 0.65;
+    transform: translateY(2px);
+  }
+}
