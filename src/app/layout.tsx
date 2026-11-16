@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Secretly",
-  description: "Find leaked secrets in your repos, fix them, and know you're safe.",
+  description:
+    "Scan your public GitHub repositories for exposed credentials and get guidance on how to fix them.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
