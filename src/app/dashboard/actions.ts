@@ -92,6 +92,7 @@ export async function startScan(input: unknown): Promise<StartScanResult> {
     scanId = row.id;
   } catch (error) {
     if (isUniqueViolation(error)) {
+      revalidatePath("/dashboard");
       return { ok: false, message: "A scan is already queued or running for this repository." };
     }
     return { ok: false, message: "Could not start the scan. Please try again." };
@@ -108,6 +109,7 @@ export async function startScan(input: unknown): Promise<StartScanResult> {
       .update(scans)
       .set({ status: "failed", finishedAt: new Date(), error: "Could not queue the scan." })
       .where(eq(scans.id, scanId));
+    revalidatePath("/dashboard");
     return { ok: false, message: "Could not queue the scan. Please try again." };
   }
 

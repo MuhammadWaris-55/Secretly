@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { db } from "@/core/db/client";
 import { repos, scans } from "@/core/db/schema";
 import { getSession } from "@/lib/session";
+import { ScanStatusRefresh } from "./scan-status-refresh";
 
 type ScanState = { status: "queued" | "running" | "done" | "failed"; findingsCount: number };
 
@@ -41,11 +42,16 @@ async function Account() {
     })
     .from(scans)
     .where(eq(scans.userId, userId))
-    .orderBy(scans.repoId, desc(scans.createdAt));
+    .orderBy(scans.repoId, desc(scans.createdAt), desc(scans.id));
   const scanByRepo = new Map(latestScans.map((scan) => [scan.repoId, scan]));
+  const hasActiveScans = myRepos.some(({ id }) => {
+    const status = scanByRepo.get(id)?.status;
+    return status === "queued" || status === "running";
+  });
 
   return (
     <>
+      <ScanStatusRefresh active={hasActiveScans} />
       <p className="text-muted-foreground">
         Signed in as {session.user.name} ({session.user.email})
       </p>
@@ -64,12 +70,15 @@ async function Account() {
         {myRepos.length === 0 ? (
           <p className="text-muted-foreground">None yet. Click “Find my repositories”.</p>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="divide-y rounded-xl border bg-card shadow-sm">
             {myRepos.map((repo) => {
               const scan = scanByRepo.get(repo.id);
               const busy = scan?.status === "queued" || scan?.status === "running";
               return (
-                <li key={repo.id} className="flex items-center justify-between gap-3 text-sm">
+                <li
+                  key={repo.id}
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 text-sm sm:flex-nowrap"
+                >
                   <div className="min-w-0 space-y-1">
                     <p className="break-all">{repo.fullName}</p>
                     <Link
@@ -80,12 +89,28 @@ async function Account() {
                       View findings
                     </Link>
                   </div>
-                  <span className="flex items-start gap-2">
-                    <Badge variant={scan?.status === "failed" ? "destructive" : "secondary"}>
-                      {describeScan(scan)}
-                    </Badge>
+                  <div className="flex items-start gap-2">
+                    <div
+                      role="status"
+                      aria-label={`Scan status for ${repo.fullName}`}
+                      className="flex min-h-7 items-center"
+                    >
+                      <Badge variant={scan?.status === "failed" ? "destructive" : "secondary"}>
+                        {busy && (
+                          <span
+                            aria-hidden="true"
+                            className={
+                              scan.status === "running"
+                                ? "size-2 rounded-full border border-current border-r-transparent motion-safe:animate-spin"
+                                : "size-1.5 rounded-full bg-current opacity-60"
+                            }
+                          />
+                        )}
+                        {describeScan(scan)}
+                      </Badge>
+                    </div>
                     <ScanRepoButton repoId={repo.id} busy={busy} />
-                  </span>
+                  </div>
                 </li>
               );
             })}
