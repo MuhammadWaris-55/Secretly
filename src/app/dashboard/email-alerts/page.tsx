@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import Link from "next/link";
+import { Bell, Mail } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,8 +28,21 @@ async function Preferences() {
 
   return (
     <>
-      <div className="space-y-3">
-        <p>{subscribed ? "Email alerts are on." : "Email alerts are off."}</p>
+      <section
+        className="secretly-workspace-panel flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6"
+        aria-labelledby="email-preference"
+      >
+        <div className="flex items-start gap-3">
+          <Bell size={20} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <div>
+            <h2 id="email-preference" className="font-semibold">
+              {subscribed ? "Email alerts are on" : "Email alerts are off"}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Get an email when a scan detects a new finding.
+            </p>
+          </div>
+        </div>
         {subscribed || account?.verified ? (
           <form action={updateEmailAlerts}>
             <input
@@ -37,7 +50,7 @@ async function Preferences() {
               name="preference"
               value={subscribed ? "unsubscribe" : "subscribe"}
             />
-            <Button type="submit" variant="outline">
+            <Button type="submit" variant={subscribed ? "outline" : "default"}>
               {subscribed ? "Unsubscribe" : "Turn on email alerts"}
             </Button>
           </form>
@@ -46,13 +59,17 @@ async function Preferences() {
             Email alerts require a verified account email.
           </p>
         )}
-      </div>
-      <section className="space-y-3 rounded-lg border p-5">
-        <h2 className="font-semibold">Sample email</h2>
-        <p className="text-sm font-medium">{preview.subject}</p>
-        <p className="text-sm break-all whitespace-pre-wrap text-muted-foreground">
-          {preview.text}
-        </p>
+      </section>
+      <section className="secretly-workspace-panel space-y-4 p-5 sm:p-6">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Mail size={18} aria-hidden="true" /> Sample email
+        </h2>
+        <div className="secretly-workspace-inset space-y-3 p-4 sm:p-5">
+          <p className="border-b border-[#414739] pb-3 text-sm font-semibold">{preview.subject}</p>
+          <p className="text-sm leading-relaxed wrap-anywhere whitespace-pre-wrap text-[#ced2c5]">
+            {preview.text}
+          </p>
+        </div>
       </section>
     </>
   );
@@ -60,11 +77,8 @@ async function Preferences() {
 
 export default function EmailAlertsPage() {
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-12">
-      <Link href="/dashboard" className="self-start text-sm underline underline-offset-4">
-        Back to dashboard
-      </Link>
-      <h1 className="text-3xl font-semibold tracking-tight">Email alerts</h1>
+    <main className="secretly-workspace-width flex max-w-3xl flex-col gap-6 py-10 sm:py-14">
+      <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Email alerts</h1>
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading preferences…</p>}>
         <Preferences />
       </Suspense>

@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import { ArrowUpRight, GitFork } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -52,42 +53,55 @@ async function Account() {
   return (
     <>
       <ScanStatusRefresh active={hasActiveScans} />
-      <p className="text-muted-foreground">
-        Signed in as {session.user.name} ({session.user.email})
-      </p>
-      <div className="flex flex-wrap gap-3">
-        <SyncReposButton />
-        <SignOutButton />
-        <Link
-          href="/dashboard/email-alerts"
-          className="self-center text-sm underline underline-offset-4"
-        >
-          Email alerts
-        </Link>
-      </div>
-      <section className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold">Your repositories ({myRepos.length})</h2>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Repositories</h1>
+          <p className="mt-2 text-sm wrap-anywhere text-muted-foreground">
+            Signed in as {session.user.name} ({session.user.email})
+          </p>
+        </div>
+        <div className="flex flex-wrap items-start gap-2">
+          <SyncReposButton />
+          <SignOutButton />
+        </div>
+      </header>
+      <section className="flex flex-col gap-3" aria-labelledby="repo-list-heading">
+        <h2 id="repo-list-heading" className="text-lg font-semibold tracking-tight">
+          Your public repositories{" "}
+          <span className="ml-1 text-sm text-muted-foreground tabular-nums">{myRepos.length}</span>
+        </h2>
         {myRepos.length === 0 ? (
-          <p className="text-muted-foreground">None yet. Click “Find my repositories”.</p>
+          <p className="secretly-workspace-panel p-5 text-sm text-muted-foreground">
+            Click “Find my repositories” to get started.
+          </p>
         ) : (
-          <ul className="divide-y rounded-xl border bg-card shadow-sm">
+          <ul className="secretly-workspace-panel divide-y overflow-hidden">
             {myRepos.map((repo) => {
               const scan = scanByRepo.get(repo.id);
               const busy = scan?.status === "queued" || scan?.status === "running";
+              const state =
+                scan?.status === "done" && scan.findingsCount > 0 ? "findings" : scan?.status;
               return (
                 <li
                   key={repo.id}
-                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 text-sm sm:flex-nowrap"
+                  className="secretly-workspace-row flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-4 text-sm sm:flex-nowrap sm:px-5"
                 >
-                  <div className="min-w-0 space-y-1">
-                    <p className="break-all">{repo.fullName}</p>
-                    <Link
-                      href={`/dashboard/repos/${repo.id}`}
-                      aria-label={`View findings for ${repo.fullName}`}
-                      className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
-                    >
-                      View findings
-                    </Link>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <GitFork
+                      size={16}
+                      className="mt-0.5 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 space-y-1">
+                      <p className="font-semibold wrap-anywhere">{repo.fullName}</p>
+                      <Link
+                        href={`/dashboard/repos/${repo.id}`}
+                        aria-label={`View findings for ${repo.fullName}`}
+                        className="secretly-workspace-link inline-flex items-center gap-1 text-xs text-muted-foreground"
+                      >
+                        View findings <ArrowUpRight size={12} aria-hidden="true" />
+                      </Link>
+                    </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <div
@@ -95,7 +109,12 @@ async function Account() {
                       aria-label={`Scan status for ${repo.fullName}`}
                       className="flex min-h-7 items-center"
                     >
-                      <Badge variant={scan?.status === "failed" ? "destructive" : "secondary"}>
+                      <Badge
+                        key={state ?? "unscanned"}
+                        variant="secondary"
+                        data-state={state}
+                        className="secretly-scan-state"
+                      >
                         {busy && (
                           <span
                             aria-hidden="true"
@@ -123,8 +142,7 @@ async function Account() {
 
 export default function DashboardPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-16">
-      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+    <main className="secretly-workspace-width flex flex-col gap-8 py-10 sm:py-14">
       <Suspense fallback={<p className="text-muted-foreground">Loading...</p>}>
         <Account />
       </Suspense>

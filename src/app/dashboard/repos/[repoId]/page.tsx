@@ -1,4 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -60,18 +61,18 @@ async function RepositoryFindings({ params }: Props) {
 
   return (
     <>
-      <header className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Findings</h1>
-        <p className="break-all text-muted-foreground">{repo.fullName}</p>
+      <header className="space-y-2">
+        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Findings</h1>
+        <p className="text-sm wrap-anywhere text-muted-foreground">{repo.fullName}</p>
       </header>
       {entries.length === 0 ? (
-        <p className="rounded-lg border p-5 text-sm">
+        <p className="secretly-workspace-panel p-5 text-sm">
           {repo.lastScannedAt
             ? "No secrets detected in the last completed scan."
             : "Findings will appear here after the first completed scan."}
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-4">
           {entries.map((finding) => {
             const guide = getSecretRemediation(finding.ruleId);
             const location = finding.seenInLatestScan
@@ -81,26 +82,50 @@ async function RepositoryFindings({ params }: Props) {
               : "Previously detected";
 
             return (
-              <li key={finding.id} className="space-y-3 rounded-lg border p-5">
+              <li key={finding.id} className="secretly-workspace-panel space-y-4 p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-base font-semibold">{guide.title}</h2>
+                  <h2 className="text-lg font-semibold tracking-tight">{guide.title}</h2>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">{location}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="secretly-scan-state"
+                      data-state={
+                        finding.seenInLatestScan && finding.inHead ? "findings" : undefined
+                      }
+                    >
+                      {location}
+                    </Badge>
                   </div>
                 </div>
-                <p className="text-sm break-all text-muted-foreground">
-                  <code>
-                    {finding.filePath}:{finding.line}
-                  </code>{" "}
-                  · Commit <code>{finding.commitSha.slice(0, 7)}</code>
-                </p>
-                <p className="text-sm">
-                  Masked preview{" "}
-                  <code className="rounded bg-muted px-1.5 py-0.5">{finding.maskedPreview}</code>
-                </p>
-                <details className="border-t pt-3 text-sm">
-                  <summary className="cursor-pointer font-medium">How to fix</summary>
-                  <ol className="mt-2 list-decimal space-y-2 pl-5">
+                <dl className="secretly-workspace-inset grid gap-3 p-3.5 text-sm sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <dt className="text-xs text-[#bdc3b5]">Location</dt>
+                    <dd className="mt-1 wrap-anywhere">
+                      <code>
+                        {finding.filePath}:{finding.line}
+                      </code>
+                    </dd>
+                    <dd className="mt-1 text-xs text-[#bdc3b5]">
+                      Commit <code>{finding.commitSha.slice(0, 7)}</code>
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-[#bdc3b5]">Masked preview</dt>
+                    <dd className="mt-1 wrap-anywhere text-[#d9ef93]">
+                      <code>{finding.maskedPreview}</code>
+                    </dd>
+                  </div>
+                </dl>
+                <details className="group text-sm">
+                  <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-sm font-semibold [&::-webkit-details-marker]:hidden">
+                    <ChevronRight
+                      size={16}
+                      aria-hidden="true"
+                      className="group-open:rotate-90 motion-safe:transition-transform"
+                    />{" "}
+                    How to fix
+                  </summary>
+                  <ol className="mt-3 list-decimal space-y-2 pl-6 leading-relaxed text-muted-foreground">
                     <li>{guide.rotate}</li>
                     <li>
                       Remove the credential from the code and load its replacement from a secret
@@ -129,12 +154,12 @@ async function RepositoryFindings({ params }: Props) {
 
 export default function RepositoryFindingsPage({ params }: Props) {
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
+    <main className="secretly-workspace-width flex max-w-3xl flex-col gap-7 py-10 sm:py-14">
       <Link
         href="/dashboard"
-        className="self-start text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        className="secretly-workspace-link inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground"
       >
-        Back to dashboard
+        <ArrowLeft size={15} aria-hidden="true" /> Back to repositories
       </Link>
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading findings…</p>}>
         <RepositoryFindings params={params} />
