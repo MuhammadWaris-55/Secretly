@@ -26,7 +26,7 @@ export function FindingStatusControl({
 
   return (
     <form
-      className="flex flex-wrap items-center gap-2 border-t pt-3 text-sm"
+      className="flex flex-wrap items-center gap-2.5 border-t pt-4 text-sm"
       onSubmit={(event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
@@ -45,7 +45,9 @@ export function FindingStatusControl({
         });
       }}
     >
-      <label htmlFor={`status-${findingId}`}>Status</label>
+      <label htmlFor={`status-${findingId}`} className="font-medium">
+        Status
+      </label>
       <select
         key={status}
         id={`status-${findingId}`}
