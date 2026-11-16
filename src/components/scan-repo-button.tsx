@@ -13,17 +13,27 @@ export function ScanRepoButton({ repoId, busy }: { repoId: string; busy: boolean
       <Button
         size="sm"
         variant="outline"
+        className="min-w-14 shadow-[0_2px_0_var(--border)] motion-safe:transition-[transform,box-shadow] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-px motion-safe:active:shadow-none"
         disabled={pending || busy}
         onClick={() =>
           startTransition(async () => {
-            const result = await startScan({ repoId });
-            setMessage(result.ok ? null : result.message);
+            setMessage(null);
+            try {
+              const result = await startScan({ repoId });
+              setMessage(result.ok ? null : result.message);
+            } catch {
+              setMessage("Could not start the scan. Please try again.");
+            }
           })
         }
       >
-        {pending ? "Queuing..." : busy ? "Scan in progress" : "Scan"}
+        {pending ? "Queuing…" : "Scan"}
       </Button>
-      {message && <p className="max-w-48 text-right text-xs text-muted-foreground">{message}</p>}
+      {message && (
+        <p role="alert" className="max-w-48 text-right text-xs text-muted-foreground">
+          {message}
+        </p>
+      )}
     </div>
   );
 }
