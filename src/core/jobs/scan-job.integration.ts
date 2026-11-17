@@ -4,11 +4,13 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { isUniqueViolation } from "@/core/db/errors";
 import {
+  account,
   emailAlertSubscriptions,
   findings,
   repos,
   scanEmails,
   scans,
+  session,
   user,
 } from "@/core/db/schema";
 import { CloneError, RepoTooLargeError } from "@/core/scanner/errors";
@@ -100,6 +102,61 @@ function finding(fingerprint: string, day: number, inHead = true) {
     maskedPreview: "************",
   };
 }
+
+it("deletes an account and its application data while preserving another repository's scan", async () => {
+  const { repoId, scanId } = await fixture();
+  const other = await fixture("example/other-account");
+  await database.db.update(repos).set({ userId: "another-user" }).where(eq(repos.id, other.repoId));
+  await database.db.update(scans).set({ userId: "another-user" }).where(eq(scans.id, other.scanId));
+  const db = database.db;
+  await db.insert(user).values({ id: owner, name: "Fixture", email: "delete@example.invalid" });
+  try {
+    const now = new Date();
+    await db.insert(account).values({
+      id: owner,
+      accountId: owner,
+      providerId: "github",
+      userId: owner,
+      updatedAt: now,
+    });
+    await db.insert(session).values({
+      id: owner,
+      token: randomUUID(),
+      userId: owner,
+      expiresAt: new Date(now.getTime() + 60_000),
+      updatedAt: now,
+    });
+    await db.insert(emailAlertSubscriptions).values({ userId: owner });
+    await db.insert(findings).values({ repoId, lastSeenScanId: scanId, ...finding("delete", 1) });
+    await db.insert(scanEmails).values({ scanId, count: 1, previews: ["************"] });
+
+    const { deleteAccount } = await import("@/core/db/delete-account");
+    await deleteAccount(owner);
+    await deleteAccount(owner);
+
+    expect(await db.select().from(user).where(eq(user.id, owner))).toEqual([]);
+    expect(await db.select().from(account).where(eq(account.userId, owner))).toEqual([]);
+    expect(await db.select().from(session).where(eq(session.userId, owner))).toEqual([]);
+    expect(
+      await db
+        .select()
+        .from(emailAlertSubscriptions)
+        .where(eq(emailAlertSubscriptions.userId, owner)),
+    ).toEqual([]);
+    expect(await db.select().from(repos).where(eq(repos.id, repoId))).toEqual([]);
+    expect(await db.select().from(findings).where(eq(findings.repoId, repoId))).toEqual([]);
+    expect(await db.select().from(scanEmails).where(eq(scanEmails.scanId, scanId))).toEqual([]);
+    expect(await readScan(scanId)).toBeUndefined();
+    expect(await readScan(other.scanId)).toMatchObject({
+      userId: "another-user",
+      status: "queued",
+    });
+    await jobs.processScanJob(scanId, hmacKey);
+    expect(scan).not.toHaveBeenCalled();
+  } finally {
+    await db.delete(user).where(eq(user.id, owner));
+  }
+});
 
 it("serializes overlapping deliveries and skips a completed scan", async () => {
   const { scanId } = await fixture();
