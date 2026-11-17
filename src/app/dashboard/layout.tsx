@@ -23,6 +23,9 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
             <Link href="/dashboard/email-alerts" className="secretly-workspace-link">
               Email alerts
             </Link>
+            <Link href="/dashboard/account" className="secretly-workspace-link">
+              Account
+            </Link>
           </nav>
         </div>
       </header>
