@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/core/db/client";
-import { account, repos } from "@/core/db/schema";
+import { account, repos, user } from "@/core/db/schema";
 import { listPublicRepos } from "@/core/github/public-repos";
 import { getSession } from "@/lib/session";
 import { z } from "zod";
@@ -36,10 +36,20 @@ export async function syncRepos(): Promise<SyncResult> {
   try {
     const found = await listPublicRepos(row.token);
     if (found.length > 0) {
-      await db
-        .insert(repos)
-        .values(found.map((repo) => ({ userId, fullName: repo.fullName })))
-        .onConflictDoNothing(); // already-known repos keep their scan state
+      const imported = await db.transaction(async (tx) => {
+        const [owner] = await tx
+          .select({ id: user.id })
+          .from(user)
+          .where(eq(user.id, userId))
+          .for("key share");
+        if (!owner) return false;
+        await tx
+          .insert(repos)
+          .values(found.map((repo) => ({ userId, fullName: repo.fullName })))
+          .onConflictDoNothing(); // already-known repos keep their scan state
+        return true;
+      });
+      if (!imported) return { ok: false, message: "Please sign in again." };
     }
     revalidatePath("/dashboard");
     return { ok: true, count: found.length };
