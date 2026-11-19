@@ -10,7 +10,7 @@ import { buildChildEnv } from "./child-env";
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_TIMEOUT_MS = 120_000;
-const DEFAULT_MAX_BYTES = 500 * 1024 * 1024;
+export const MAX_REPO_BYTES = 500 * 1024 * 1024;
 
 export interface CloneOptions {
   timeoutMs?: number;
@@ -41,7 +41,7 @@ export async function withClonedRepo<T>(
   fn: (repoDir: string) => Promise<T>,
   options: CloneOptions = {},
 ): Promise<T> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, maxBytes = DEFAULT_MAX_BYTES } = options;
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, maxBytes = MAX_REPO_BYTES } = options;
 
   const workDir = await mkdtemp(path.join(tmpdir(), "secretly-"));
   try {
@@ -63,6 +63,8 @@ export async function withClonedRepo<T>(
           "protocol.allow=never", // only https, nothing else
           "-c",
           "protocol.https.allow=always",
+          "-c",
+          "http.followRedirects=false", // a moved repository must be imported under its current name
           "clone",
           "--quiet",
           "--no-tags",
@@ -84,8 +86,7 @@ export async function withClonedRepo<T>(
       throw new CloneError(timedOut ? "timeout" : "failed");
     }
 
-    // Full history needs a full clone, so we can't cap during download. This is the
-    // backstop. In Step 5 we'll also skip big repos up front using GitHub's reported size.
+    // Also check the actual checkout, since GitHub's size estimate can lag.
     if ((await dirSize(repoDir)) > maxBytes) {
       throw new RepoTooLargeError(maxBytes);
     }

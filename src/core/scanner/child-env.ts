@@ -6,6 +6,7 @@ export function buildChildEnv(): NodeJS.ProcessEnv {
   const env: Record<string, string> = {
     GIT_TERMINAL_PROMPT: "0", // never wait for a password
     GIT_CONFIG_NOSYSTEM: "1", // ignore system-level git config
+    GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null",
     GCM_INTERACTIVE: "never", // no credential-manager popups on Windows
   };
   for (const key of ENV_ALLOWLIST) {
