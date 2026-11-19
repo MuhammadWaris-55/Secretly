@@ -26,4 +26,5 @@ export async function updateEmailAlerts(form: FormData) {
     }
   }
   revalidatePath("/dashboard/email-alerts");
+  revalidatePath("/dashboard/account");
 }

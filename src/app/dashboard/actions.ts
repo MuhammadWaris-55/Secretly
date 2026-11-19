@@ -52,6 +52,7 @@ export async function syncRepos(): Promise<SyncResult> {
       if (!imported) return { ok: false, message: "Please sign in again." };
     }
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/account");
     return { ok: true, count: found.length };
   } catch {
     return {
