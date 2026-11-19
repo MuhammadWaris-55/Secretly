@@ -4,7 +4,7 @@ Find leaked secrets in your GitHub repos. Fix them. Know you're safe.
 
 Secretly scans your public repositories (including full commit history) for leaked API keys, tokens, database URLs and private keys, walks you through fixing each one, and tracks the fix until it's done.
 
-> **Status:** early development. The MVP is being built step by step; nothing here is production-ready yet.
+> **Release status:** staging candidate. The production and staging section below covers deployment and the checks to run before a public launch.
 
 ## How it works
 
@@ -69,12 +69,43 @@ For a containerized worker, supply the three worker variables in a runtime env f
 
 ```bash
 docker build -f Dockerfile.worker -t secretly-worker .
-docker run --rm --cpus=1 --memory=1g --stop-timeout=910 --env-file worker.env secretly-worker
+docker run --rm --cpus=1 --memory=1536m --read-only --tmpfs /tmp:rw,noexec,nosuid,size=768m --cap-drop ALL --security-opt no-new-privileges --stop-timeout=910 --env-file worker.env secretly-worker
 ```
 
 Set equivalent CPU, memory, and shutdown limits on the hosting platform. The
 worker uses pg-boss graceful shutdown on SIGTERM or SIGINT, allowing up to 15
 minutes for active work to finish before pg-boss fails or retries unfinished jobs.
+
+## Production and staging
+
+Build the web service with `docker build -f Dockerfile.web -t secretly-web .`.
+It serves the standalone Next.js build on port 3000. Both services use Node 24
+and run as the unprivileged `node` user. The web image includes its fonts.
+
+1. Create a separate Postgres database for each environment. Set `DATABASE_URL`
+   and `DIRECT_URL` to pooled and direct connections to the **same database**.
+   With development dependencies installed, run `npm run db:migrate` as a
+   release step. The web database role needs permission to insert pg-boss jobs.
+2. Set the web service's `BETTER_AUTH_URL` to its public HTTPS origin. Register
+   `/api/auth/callback/github` on that origin as the GitHub OAuth callback.
+   Supply its GitHub credentials, a random `BETTER_AUTH_SECRET`, and a persistent
+   `HMAC_KEY` shared with the worker. Changing the HMAC key changes finding identities.
+3. Start the worker with bounded temporary storage and the limits above. Wait for
+   `/healthz` to return 200 before serving web traffic. Enable the email variables
+   on the worker when alert delivery is required.
+4. On staging, sign in, import the fixture repository, scan it, and verify the
+   current and history-only findings. Opt in to alerts and scan a fresh synthetic
+   finding. Confirm delivery and rescan the same revision to check duplicate suppression.
+   Verify sign-out and account deletion with a disposable account.
+5. Before opening registration, verify a database backup can be restored and track
+   worker availability, queue age, exhausted retries, and email failures on the host.
+
+Each account can have two active scans and start ten scans in a rolling hour.
+Worker retries reuse the original scan. Before cloning, the worker checks the
+public GitHub API for the signed-in owner's numeric GitHub ID, fork status,
+canonical repository name, and reported size (500 MiB limit). This unauthenticated
+metadata request shares GitHub's per-IP budget across workers. Factor that budget
+into staging load tests. [GitHub REST rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
 
 ## Postgres integration tests
 
