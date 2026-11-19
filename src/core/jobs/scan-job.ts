@@ -2,7 +2,9 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Client } from "pg";
 import { db } from "@/core/db/client";
+import { verifyScanTarget } from "@/core/github/scan-target";
 import {
+  account,
   emailAlertSubscriptions,
   findings,
   repos,
@@ -60,8 +62,9 @@ async function runScan(database: NodePgDatabase, scanId: string, hmacKey: string
   try {
     // The repo must belong to the same user as the scan.
     const [repo] = await database
-      .select({ id: repos.id, fullName: repos.fullName })
+      .select({ id: repos.id, fullName: repos.fullName, githubOwnerId: account.accountId })
       .from(repos)
+      .innerJoin(account, and(eq(account.userId, repos.userId), eq(account.providerId, "github")))
       .where(and(eq(repos.id, claimed.repoId), eq(repos.userId, claimed.userId)))
       .limit(1);
     if (!repo) {
@@ -69,6 +72,7 @@ async function runScan(database: NodePgDatabase, scanId: string, hmacKey: string
       return;
     }
 
+    await verifyScanTarget(repo.fullName, repo.githubOwnerId);
     const result = await scanRepo(`https://github.com/${repo.fullName}`, hmacKey);
     const unique = dedupeByFingerprint(result.findings);
     const now = new Date();
