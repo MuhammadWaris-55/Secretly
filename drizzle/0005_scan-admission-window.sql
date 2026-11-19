@@ -1,0 +1,1 @@
+CREATE INDEX "scans_user_created_idx" ON "scans" USING btree ("user_id","created_at");

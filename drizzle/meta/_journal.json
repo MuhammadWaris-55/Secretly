@@ -36,6 +36,13 @@
       "when": 1794638176329,
       "tag": "0004_email-alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795115079637,
+      "tag": "0005_scan-admission-window",
+      "breakpoints": true
     }
   ]
 }
