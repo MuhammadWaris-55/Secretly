@@ -7,7 +7,7 @@ const globalForBoss = globalThis as unknown as { bossPromise?: Promise<PgBoss> }
 async function startProducer(): Promise<PgBoss> {
   const boss = createProducerBoss({
     connectionString: env.DIRECT_URL,
-    onError: (error) => console.error("pg-boss error:", error.message),
+    onError: () => console.error("Scan queue connection or maintenance error"),
   });
   await boss.start();
   return boss;
