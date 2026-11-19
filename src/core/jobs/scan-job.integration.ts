@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { isUniqueViolation } from "@/core/db/errors";
 import {
   account,
@@ -60,11 +60,31 @@ beforeAll(async () => {
   jobs = await import("./scan-job");
 }, 15_000);
 
+beforeEach(async () => {
+  await database.db
+    .insert(user)
+    .values({ id: owner, name: "Fixture", email: "fixture@example.invalid", emailVerified: true });
+  await database.db
+    .insert(account)
+    .values({ id: owner, accountId: "42", providerId: "github", userId: owner });
+  vi.stubGlobal("fetch", async (input: string) =>
+    Response.json({
+      full_name: new URL(input).pathname.slice("/repos/".length),
+      owner: { id: 42 },
+      private: false,
+      fork: false,
+      size: 1,
+    }),
+  );
+});
+
 afterEach(async () => {
+  vi.unstubAllGlobals();
   scan.mockReset();
   for (const id of createdRepos.splice(0)) {
     await database.db.delete(repos).where(eq(repos.id, id));
   }
+  await database.db.delete(user).where(eq(user.id, owner));
 });
 
 afterAll(async () => {
@@ -109,16 +129,8 @@ it("deletes an account and its application data while preserving another reposit
   await database.db.update(repos).set({ userId: "another-user" }).where(eq(repos.id, other.repoId));
   await database.db.update(scans).set({ userId: "another-user" }).where(eq(scans.id, other.scanId));
   const db = database.db;
-  await db.insert(user).values({ id: owner, name: "Fixture", email: "delete@example.invalid" });
   try {
     const now = new Date();
-    await db.insert(account).values({
-      id: owner,
-      accountId: owner,
-      providerId: "github",
-      userId: owner,
-      updatedAt: now,
-    });
     await db.insert(session).values({
       id: owner,
       token: randomUUID(),
@@ -274,8 +286,6 @@ it("restricts status changes to the owner and matching repository, and supports 
 
 it("queues one email for new fingerprints and suppresses delivery after unsubscribe", async () => {
   const { repoId, scanId } = await fixture();
-  const email = "fixture@example.invalid";
-  await database.db.insert(user).values({ id: owner, name: "Fixture", email, emailVerified: true });
   try {
     await database.db.insert(emailAlertSubscriptions).values({ userId: owner });
     const result = { repo: repoRef, headSha, findings: [finding("new", 1), finding("new", 2)] };
@@ -376,6 +386,70 @@ it("enforces one queued or running scan per repository", async () => {
   expect(await fixture("example/another-repo")).toHaveProperty("scanId");
 });
 
+it("atomically admits owned scans and enforces shared active and rolling hourly limits", async () => {
+  const { requestScan } = await import("./request-scan");
+  const userId = randomUUID();
+  const connectionString = process.env.TEST_DATABASE_URL!;
+  const boss = createWorkerBoss({ connectionString, onError: () => {} });
+  await database.db
+    .insert(user)
+    .values({ id: userId, name: "Quota", email: userId + "@example.invalid" });
+  try {
+    await boss.start();
+    await ensureQueues(boss);
+    const owned = await database.db
+      .insert(repos)
+      .values(["one", "two", "three"].map((name) => ({ fullName: "quota/" + name, userId })))
+      .returning({ id: repos.id });
+    const repoId = owned[0]!.id;
+    await expect(requestScan(owner, repoId, boss)).resolves.toMatchObject({
+      ok: false,
+      message: "Repository not found.",
+    });
+    await expect(requestScan(userId, repoId, { send: async () => null })).rejects.toThrow();
+    expect(await database.db.select().from(scans).where(eq(scans.userId, userId))).toHaveLength(0);
+
+    const results = await Promise.all(owned.map((repo) => requestScan(userId, repo.id, boss)));
+    expect(results.filter((result) => result.ok)).toHaveLength(2);
+    const pending = await database.db.select().from(scans).where(eq(scans.userId, userId));
+    expect(pending).toHaveLength(2);
+    const enqueued = await boss.fetch<{ scanId: string }>(SCAN_QUEUE, { batchSize: 3 });
+    expect(enqueued.map((job) => job.data.scanId).sort()).toEqual(
+      pending.map((scan) => scan.id).sort(),
+    );
+    await boss.complete(
+      SCAN_QUEUE,
+      enqueued.map((job) => job.id),
+    );
+    await expect(requestScan(userId, pending[0]!.repoId, boss)).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringContaining("this repository"),
+    });
+    await database.db.update(scans).set({ status: "done" }).where(eq(scans.userId, userId));
+    await database.db
+      .insert(scans)
+      .values(Array.from({ length: 7 }, () => ({ userId, repoId, status: "done" as const })));
+    const lastSlot = await Promise.all(owned.map((repo) => requestScan(userId, repo.id, boss)));
+    expect(lastSlot.filter((result) => result.ok)).toHaveLength(1);
+    expect(
+      lastSlot.filter((result) => !result.ok && result.message.includes("per hour")),
+    ).toHaveLength(2);
+    const [last] = await boss.fetch(SCAN_QUEUE);
+    await boss.complete(SCAN_QUEUE, last!.id);
+    await database.db
+      .update(scans)
+      .set({ status: "done", createdAt: sql`now() - interval '61 minutes'` })
+      .where(eq(scans.userId, userId));
+    await expect(requestScan(userId, repoId, boss)).resolves.toEqual({ ok: true });
+    const [fresh] = await boss.fetch(SCAN_QUEUE);
+    await boss.complete(SCAN_QUEUE, fresh!.id);
+  } finally {
+    await boss.stop();
+    await database.db.delete(repos).where(eq(repos.userId, userId));
+    await database.db.delete(user).where(eq(user.id, userId));
+  }
+}, 30_000);
+
 it("does not scan repositories owned by a different user", async () => {
   const { repoId, scanId } = await fixture();
   await jobs.failScan(scanId, "Fixture setup");
@@ -385,5 +459,28 @@ it("does not scan repositories owned by a different user", async () => {
     status: "failed",
     error: "Repository not found.",
   });
+  expect(scan).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["transferred", { owner: { id: 99 } }],
+  ["private", { private: true }],
+  ["forked", { fork: true }],
+  ["renamed", { full_name: "other/name" }],
+  ["oversized", { size: 512001 }],
+])("skips cloning a %s repository", async (_reason, change) => {
+  const { scanId } = await fixture();
+  vi.stubGlobal("fetch", async () =>
+    Response.json({
+      full_name: repoName,
+      owner: { id: 42 },
+      private: false,
+      fork: false,
+      size: 1,
+      ...change,
+    }),
+  );
+  await jobs.processScanJob(scanId, hmacKey);
+  expect(await readScan(scanId)).toMatchObject({ status: "failed" });
   expect(scan).not.toHaveBeenCalled();
 });
