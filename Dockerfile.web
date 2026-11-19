@@ -1,0 +1,23 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY . .
+# Dynamic routes read real credentials at runtime. Build using disposable configuration.
+RUN DATABASE_URL=postgresql://build@localhost/build DIRECT_URL=postgresql://build@localhost/build \
+    HMAC_KEY=build-placeholder-never-use-at-runtime \
+    BETTER_AUTH_SECRET=build-placeholder-never-use-at-runtime \
+    GITHUB_CLIENT_ID=build GITHUB_CLIENT_SECRET=build BETTER_AUTH_URL=http://localhost:3000 \
+    npm run build
+
+FROM node:24-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+RUN mkdir -p .next/cache && chown node:node .next/cache
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
