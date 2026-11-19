@@ -1,3 +1,10 @@
+export class RepoUnavailableError extends Error {
+  constructor() {
+    super("This repository is no longer available to scan. Refresh your repositories.");
+    this.name = "RepoUnavailableError";
+  }
+}
+
 export class InvalidRepoUrlError extends Error {
   constructor(reason: string) {
     super(`Invalid repository URL: ${reason}`);

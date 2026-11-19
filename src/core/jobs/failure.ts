@@ -1,4 +1,9 @@
-import { GitleaksError, InvalidRepoUrlError, RepoTooLargeError } from "@/core/scanner/errors";
+import {
+  GitleaksError,
+  InvalidRepoUrlError,
+  RepoTooLargeError,
+  RepoUnavailableError,
+} from "@/core/scanner/errors";
 
 export const SCAN_FAILED_AFTER_RETRIES =
   "The scan failed after several attempts. Please try again later.";
@@ -11,6 +16,7 @@ export interface ScanFailure {
 }
 
 export function classifyScanError(error: unknown): ScanFailure {
+  if (error instanceof RepoUnavailableError) return { permanent: true, message: error.message };
   if (error instanceof InvalidRepoUrlError) {
     return { permanent: true, message: "This repository address is not valid." };
   }
