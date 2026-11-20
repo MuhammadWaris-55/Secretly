@@ -57,7 +57,7 @@ async function Account() {
         <div className="min-w-0">
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Repositories</h1>
           <p className="mt-2 text-sm wrap-anywhere text-muted-foreground">
-            Signed in as {session.user.name} ({session.user.email})
+            Signed in as {session.user.name}
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
