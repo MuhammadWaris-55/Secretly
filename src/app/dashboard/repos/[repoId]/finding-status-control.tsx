@@ -60,7 +60,7 @@ export function FindingStatusControl({
       >
         <Select.Trigger
           aria-labelledby={labelId}
-          className="group inline-flex h-8 min-w-36 items-center justify-between gap-3 rounded-md border border-input bg-card px-2.5 font-medium shadow-[0_2px_0_#e1ded2] hover:bg-muted disabled:opacity-60"
+          className="group inline-flex h-8 min-w-36 items-center justify-between gap-3 rounded-md border border-input bg-card px-2.5 font-medium shadow-[0_2px_0_var(--border)] hover:bg-muted disabled:opacity-60"
         >
           <Select.Value />
           <Select.Icon className="text-muted-foreground group-data-popup-open:rotate-180 motion-safe:transition-transform">
@@ -74,16 +74,16 @@ export function FindingStatusControl({
             sideOffset={6}
             className="z-50"
           >
-            <Select.Popup className="max-w-(--available-width) min-w-(--anchor-width) origin-(--transform-origin) rounded-lg border border-[#d4d2c5] bg-[#fcfaf4] p-1 text-sm text-[#22241e] shadow-lg data-ending-style:opacity-0 data-starting-style:opacity-0 motion-safe:transition-[opacity,transform] motion-safe:duration-150 motion-safe:data-ending-style:-translate-y-1 motion-safe:data-starting-style:-translate-y-1">
+            <Select.Popup className="max-w-(--available-width) min-w-(--anchor-width) origin-(--transform-origin) rounded-lg border border-[#d4d2c5] bg-[#fcfaf4] p-1 text-sm text-[#22241e] shadow-lg data-ending-style:opacity-0 data-starting-style:opacity-0 motion-safe:transition-[opacity,transform] motion-safe:duration-150 motion-safe:data-ending-style:-translate-y-1 motion-safe:data-starting-style:-translate-y-1 dark:border-[#42483a] dark:bg-[#23271f] dark:text-[#f2f3e9]">
               <Select.List>
                 {Object.entries(statusLabels).map(([value, label]) => (
                   <Select.Item
                     key={value}
                     value={value}
-                    className="flex min-h-8 cursor-default items-center justify-between gap-3 rounded-md px-2.5 outline-none select-none data-highlighted:bg-[#ece9df] data-selected:font-semibold"
+                    className="flex min-h-8 cursor-default items-center justify-between gap-3 rounded-md px-2.5 outline-none select-none data-highlighted:bg-[#ece9df] dark:data-highlighted:bg-[#404638] data-selected:font-semibold"
                   >
                     <Select.ItemText>{label}</Select.ItemText>
-                    <Select.ItemIndicator className="text-[#526235]">
+                    <Select.ItemIndicator className="text-[#526235] dark:text-[#d9ef93]">
                       <Check size={14} aria-hidden="true" />
                     </Select.ItemIndicator>
                   </Select.Item>

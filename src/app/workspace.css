@@ -16,7 +16,8 @@
   flex: 1;
   background: var(--background);
   color: var(--foreground);
-  color-scheme: light;
+  display: flex;
+  flex-direction: column;
 }
 
 .secretly-workspace-width {
@@ -42,7 +43,7 @@
   border: 1px solid var(--border);
   border-radius: 0.85rem;
   background: var(--card);
-  box-shadow: 0 3px 0 #e1ded2;
+  box-shadow: 0 3px 0 var(--border);
 }
 
 .secretly-workspace-inset {
@@ -53,7 +54,7 @@
 }
 
 .secretly-scan-state {
-  color: #515648;
+  color: var(--muted-foreground);
 }
 
 .secretly-scan-state[data-state="running"],
@@ -74,7 +75,7 @@
 }
 
 .secretly-workspace-row:focus-within {
-  background: #f5f4e9;
+  background: var(--muted);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -89,7 +90,7 @@
 
 @media (hover: hover) {
   .secretly-workspace-row:hover {
-    background: #f5f4e9;
+    background: var(--muted);
   }
 }
 
@@ -98,4 +99,21 @@
     opacity: 0.65;
     transform: translateY(2px);
   }
+}
+
+.dark .secretly-workspace {
+  --background: #181c16;
+  --foreground: #f2f3e9;
+  --card: #23271f;
+  --card-foreground: var(--foreground);
+  --muted: #30352b;
+  --muted-foreground: #bec3b4;
+  --border: #42483a;
+  --input: #626a57;
+  --ring: #c6dc8c;
+  --primary: #d9ef93;
+  --primary-foreground: #242a18;
+  --secondary: var(--muted);
+  --secondary-foreground: var(--foreground);
+  --destructive: #ffac9a;
 }
