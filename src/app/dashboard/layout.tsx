@@ -1,3 +1,5 @@
+import { SiteFooter } from "@/components/site-footer";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Fingerprint } from "lucide-react";
 import Link from "next/link";
 
@@ -13,9 +15,12 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
             <Fingerprint size={23} aria-hidden="true" />
             Secretly
           </Link>
+          <div className="ml-auto sm:order-last sm:ml-0">
+            <ThemeToggle />
+          </div>
           <nav
             aria-label="Workspace"
-            className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium"
+            className="flex w-full flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium sm:ml-auto sm:w-auto"
           >
             <Link href="/dashboard" className="secretly-workspace-link">
               Repositories
@@ -30,6 +35,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
         </div>
       </header>
       {children}
+      <SiteFooter workspace />
     </div>
   );
 }
