@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "./landing.css";
 @import "./workspace.css";
+@import "./footer.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -128,5 +129,56 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+.theme-toggle {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--line, var(--border));
+  border-radius: 50%;
+  cursor: pointer;
+}
+.theme-toggle svg {
+  grid-area: 1 / 1;
+}
+.theme-sun,
+.dark .theme-moon {
+  opacity: 0;
+  transform: rotate(-65deg) scale(0.65);
+}
+.theme-moon,
+.dark .theme-sun {
+  opacity: 1;
+  transform: none;
+}
+html:not(.dark) .theme-light-label,
+.dark .theme-dark-label {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .theme-toggle svg {
+    transition:
+      opacity 180ms ease,
+      transform 240ms ease-out;
+  }
+  .secretly-landing,
+  .secretly-workspace,
+  .secretly-workspace-panel {
+    transition:
+      background-color 200ms ease,
+      color 200ms ease,
+      border-color 200ms ease;
   }
 }

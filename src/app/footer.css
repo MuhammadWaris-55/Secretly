@@ -1,0 +1,99 @@
+.secretly-footer {
+  margin-top: auto;
+  background: #22261e;
+  color: #f4f5ee;
+}
+
+.secretly-footer-inner {
+  width: min(100% - 2rem, 74rem);
+  margin-inline: auto;
+}
+
+.secretly-workspace .secretly-footer-inner {
+  width: min(100% - 2rem, 69rem);
+}
+
+.secretly-footer-main {
+  display: grid;
+  align-items: start;
+  gap: 1.5rem 3rem;
+  padding-block: clamp(1.75rem, 5vw, 3.5rem);
+}
+
+.secretly-footer-brand {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.055em;
+}
+
+.secretly-footer-mark {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: #d9ef93;
+  color: #22261e;
+}
+
+.secretly-footer-main p {
+  max-width: 33ch;
+  margin-top: 0.75rem;
+  color: #bdc3b5;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.secretly-footer-main nav {
+  display: grid;
+  width: min(100%, 16rem);
+}
+
+.secretly-footer-link {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #42483a;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.secretly-footer-link svg,
+.secretly-footer-link:hover,
+.secretly-footer-link:focus-visible,
+.secretly-footer-bottom strong {
+  color: #d9ef93;
+}
+
+.secretly-footer-bottom {
+  border-top: 1px solid #42483a;
+  padding-block: 1rem;
+  color: #bdc3b5;
+  font-size: 0.8rem;
+}
+
+@media (min-width: 38rem) {
+  .secretly-landing .secretly-footer-inner {
+    width: min(100% - 3rem, 74rem);
+  }
+
+  .secretly-footer-main {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 16rem);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .secretly-footer-link svg {
+    transition: transform 180ms ease;
+  }
+
+  .secretly-footer-link:is(:hover, :focus-visible) svg {
+    transform: translate(2px, -2px);
+  }
+}
