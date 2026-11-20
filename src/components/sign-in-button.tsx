@@ -29,7 +29,7 @@ export function SignInButton() {
     <div className="space-y-2">
       <Button
         size="lg"
-        className="h-12 gap-3 rounded-md border-[#22241e] bg-[#22241e] px-4 text-[#f4f2eb] shadow-[0_3px_0_#69704f] hover:bg-[#353928] focus-visible:ring-[#535d35] motion-safe:transition-[transform,background-color] motion-safe:active:translate-y-0.5"
+        className="h-12 gap-3 rounded-md border-[#22241e] bg-[#22241e] px-4 text-[#f4f2eb] shadow-[0_3px_0_#69704f] hover:bg-[#353928] focus-visible:ring-[#535d35] motion-safe:transition-[transform,background-color] motion-safe:active:translate-y-0.5 dark:border-[#d9ef93] dark:bg-[#d9ef93] dark:text-[#242a18] dark:hover:bg-[#e4f5b5]"
         disabled={pending}
         onClick={signIn}
       >
@@ -37,7 +37,7 @@ export function SignInButton() {
         <ArrowUpRight aria-hidden="true" />
       </Button>
       {failed && (
-        <p role="alert" className="text-sm text-[#852f29]">
+        <p role="alert" className="text-sm text-[#852f29] dark:text-[#ffb4a5]">
           Could not start GitHub sign-in. Try again.
         </p>
       )}

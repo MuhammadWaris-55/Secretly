@@ -1,4 +1,17 @@
-import { ArrowDownRight, Fingerprint, GitCommitHorizontal, ScanLine, Wrench } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  ArrowDownRight,
+  Bell,
+  ChevronDown,
+  Fingerprint,
+  FolderGit2,
+  GitCommitHorizontal,
+  ListChecks,
+  ScanLine,
+  ShieldCheck,
+  Wrench,
+} from "lucide-react";
+import { SiteFooter } from "@/components/site-footer";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SignInButton } from "@/components/sign-in-button";
@@ -25,6 +38,54 @@ const workflow = [
     icon: GitCommitHorizontal,
     title: "Rescan after cleanup",
     text: "Check whether the secret is still detected in current code or Git history. Keep your own record of what you fixed.",
+  },
+];
+
+const features = [
+  {
+    icon: FolderGit2,
+    title: "Discover your repositories",
+    text: "Sign in with GitHub, find your public repositories, and choose which ones to scan.",
+  },
+  {
+    icon: GitCommitHorizontal,
+    title: "Scan code and commit history",
+    text: "Look for API keys, tokens, private keys, and database credentials, including ones removed from the current code.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Review findings safely",
+    text: "See the file, line, commit, and a masked preview. Each finding shows whether it was detected in current code, in Git history, or on an earlier scan.",
+  },
+  {
+    icon: Wrench,
+    title: "Get steps for each exposure",
+    text: "Find out where to rotate or revoke the credential and how to remove it from your code before running a fresh scan.",
+  },
+  {
+    icon: ListChecks,
+    title: "Track what you’ve handled",
+    text: "Mark findings fixed, ignored, or false positives, and reopen them if needed. Rescans preserve your status choices.",
+  },
+  {
+    icon: Bell,
+    title: "Get email alerts for new findings",
+    text: "Opt in with a verified email. After a scan, alerts summarize new findings and include masked previews.",
+  },
+];
+
+const questions = [
+  {
+    title: "Which repositories can I scan?",
+    text: "Secretly scans public GitHub repositories you own, excluding forks. GitHub sign-in uses your profile and email, and public repository scans require no repository permissions.",
+  },
+  {
+    title: "What data does Secretly keep?",
+    text: "Secretly stores finding details, masked previews, and fingerprints. Full credentials are never stored. You can permanently delete your Secretly account and scan records from Account settings.",
+  },
+  {
+    title: "Will I get the same alert on every scan?",
+    text: "Email alerts cover newly detected findings. A repeat scan of a known finding won’t send another alert for it. You can unsubscribe from the Email alerts page.",
   },
 ];
 
@@ -69,9 +130,18 @@ export default function Home() {
         <span className="secretly-landing-brand">
           <Fingerprint size={23} aria-hidden="true" /> Secretly
         </span>
-        <a className="secretly-landing-section-link" href="#how-it-works">
-          How it works <ArrowDownRight size={15} aria-hidden="true" />
-        </a>
+        <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4">
+          <a
+            className="secretly-landing-section-link secretly-landing-features-link"
+            href="#features"
+          >
+            Features
+          </a>
+          <a className="secretly-landing-section-link" href="#how-it-works">
+            How it works <ArrowDownRight size={15} aria-hidden="true" />
+          </a>
+          <ThemeToggle />
+        </div>
       </header>
       <main>
         <section className="secretly-landing-hero">
@@ -109,10 +179,44 @@ export default function Home() {
             ))}
           </ol>
         </section>
+        <section
+          className="secretly-landing-features"
+          id="features"
+          aria-labelledby="features-heading"
+        >
+          <h2 id="features-heading">What you can do with Secretly</h2>
+          <ul className="secretly-feature-grid" role="list">
+            {features.map(({ icon: Icon, title, text }) => (
+              <li className="secretly-feature" key={title}>
+                <span className="secretly-feature-icon">
+                  <Icon size={21} strokeWidth={1.75} aria-hidden="true" />
+                </span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section
+          className="secretly-landing-questions"
+          id="questions"
+          aria-labelledby="questions-heading"
+        >
+          <h2 id="questions-heading">Common questions</h2>
+          <div className="secretly-question-list">
+            {questions.map(({ title, text }) => (
+              <details key={title}>
+                <summary>
+                  {title}
+                  <ChevronDown size={18} aria-hidden="true" />
+                </summary>
+                <p>{text}</p>
+              </details>
+            ))}
+          </div>
+        </section>
       </main>
-      <footer className="secretly-landing-footer">
-        <p>Secretly stores masked previews and fingerprints for detected credentials.</p>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
