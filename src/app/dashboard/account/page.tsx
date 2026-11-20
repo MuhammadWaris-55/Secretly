@@ -1,3 +1,4 @@
+import { AccountAvatar } from "./account-avatar";
 import { eq } from "drizzle-orm";
 import { ArrowRight, Bell, ChevronDown, FolderGit2, KeyRound } from "lucide-react";
 import Link from "next/link";
@@ -16,6 +17,7 @@ async function AccountSettings() {
   const [profile] = await db
     .select({
       name: user.name,
+      image: user.image,
       email: user.email,
       verified: user.emailVerified,
       joined: user.createdAt,
@@ -37,12 +39,7 @@ async function AccountSettings() {
     <>
       <section className="secretly-workspace-panel overflow-hidden" aria-labelledby="profile-name">
         <header className="flex items-center gap-4 bg-[#22261e] p-5 text-[#f4f5ee] sm:p-6">
-          <span
-            aria-hidden="true"
-            className="grid size-14 shrink-0 place-items-center rounded-xl bg-[#dfedb4] text-3xl font-semibold text-[#293320]"
-          >
-            {Array.from(displayName)[0]?.toUpperCase()}
-          </span>
+          <AccountAvatar image={profile.image} name={displayName} />
           <div className="min-w-0">
             <h2 id="profile-name" className="text-2xl font-semibold tracking-tight wrap-anywhere">
               {displayName}
