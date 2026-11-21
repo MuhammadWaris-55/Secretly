@@ -15,6 +15,7 @@ export type ScanJob = z.infer<typeof scanJobSchema>;
 export const SCAN_QUEUE_POLICY = "exclusive" as const;
 
 export const SCAN_QUEUE_SETTINGS = {
+  notify: true, // Direct-session LISTEN wakes warm workers without a polling delay.
   retryLimit: 3,
   retryDelay: 30, // seconds, doubled with backoff on each retry
   retryBackoff: true,

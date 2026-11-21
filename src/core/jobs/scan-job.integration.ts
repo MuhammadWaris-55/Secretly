@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { isUniqueViolation } from "@/core/db/errors";
 import {
   account,
@@ -12,12 +12,14 @@ import {
   scans,
   session,
   user,
+  workerRuntime,
 } from "@/core/db/schema";
 import { CloneError, RepoTooLargeError } from "@/core/scanner/errors";
 import { scanRepo, type RepoScanResult } from "@/core/scanner/scan-repo";
-import { createWorkerBoss, ensureQueues } from "./boss";
+import { createProducerBoss, createWorkerBoss, ensureQueues } from "./boss";
 import { SCAN_FAILED_AFTER_RETRIES, ScanAttemptError } from "./failure";
 import { SCAN_DEAD_LETTER_QUEUE, SCAN_QUEUE, scanJobSchema } from "./queues";
+import type { WorkerControlConfig } from "@/core/worker-control/config";
 
 vi.mock("@/core/scanner/scan-repo", () => ({ scanRepo: vi.fn() }));
 
@@ -85,6 +87,112 @@ afterEach(async () => {
     await database.db.delete(repos).where(eq(repos.id, id));
   }
   await database.db.delete(user).where(eq(user.id, owner));
+  await database.db.delete(workerRuntime);
+});
+
+describe("automatic scanner capacity with Postgres", () => {
+  const config: WorkerControlConfig = {
+    WORKER_VERCEL_TOKEN: "test-only-access-token",
+    WORKER_VERCEL_PROJECT_ID: "prj_test",
+    WORKER_VERCEL_TEAM_ID: "team_test",
+    WORKER_VERCEL_REGION: "iad1",
+    WORKER_IDLE_SECONDS: 300,
+  };
+  async function idleRuntime() {
+    await database.db.insert(workerRuntime).values({ id: "scan-worker", lastBusyAt: new Date(0) });
+  }
+  function provider(initial: number, onScale?: (count: number) => Promise<void>) {
+    let count = initial;
+    const changes: number[] = [];
+    vi.stubGlobal("fetch", async (_input: URL, options?: RequestInit) => {
+      if (options?.method === "PUT") {
+        const next = (JSON.parse(String(options.body)) as Record<string, number>).iad1!;
+        if (onScale) await onScale(next);
+        changes.push(next);
+        count = next;
+        return Response.json({ ok: true });
+      }
+      return Response.json({
+        daemons: [
+          {
+            name: "scan-worker",
+            scope: { type: "target", value: "production" },
+            config: { instances: { iad1: count } },
+            instances: { items: [] },
+          },
+        ],
+      });
+    });
+    return changes;
+  }
+
+  it("starts for queued jobs, stays on during execution/retries, and stops only after the warm window", async () => {
+    const { reconcileWorker } = await import("@/core/worker-control/reconcile");
+    await idleRuntime();
+    const changes = provider(0);
+    const { scanId } = await fixture();
+    await reconcileWorker(config);
+    await database.db.update(scans).set({ status: "running" }).where(eq(scans.id, scanId));
+    await reconcileWorker(config);
+    expect(changes).toEqual([1]);
+    await database.db.update(scans).set({ status: "done" }).where(eq(scans.id, scanId));
+    await reconcileWorker(config);
+    expect(changes).toEqual([1]);
+    await database.db.update(workerRuntime).set({ lastBusyAt: new Date(0) });
+    await reconcileWorker(config);
+    expect(changes).toEqual([1, 0]);
+  });
+
+  it("recovers a scan committed while a stop request is in flight, without overlapping scale commands", async () => {
+    const { reconcileWorker } = await import("@/core/worker-control/reconcile");
+    await idleRuntime();
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const changes = provider(1, async (count) => {
+      if (count === 0) {
+        entered.resolve();
+        await release.promise;
+      }
+    });
+    const stopping = reconcileWorker(config);
+    try {
+      await entered.promise;
+      await fixture();
+      expect(await reconcileWorker(config)).toBe(1000);
+    } finally {
+      release.resolve();
+      await stopping;
+    }
+    await reconcileWorker(config);
+    expect(changes).toEqual([0, 1]);
+  });
+
+  it("wakes for an email retry even with no active scans", async () => {
+    const { reconcileWorker } = await import("@/core/worker-control/reconcile");
+    await idleRuntime();
+    const { scanId } = await fixture();
+    await database.db.update(scans).set({ status: "done" }).where(eq(scans.id, scanId));
+    await database.db
+      .insert(scanEmails)
+      .values({ scanId, count: 1, previews: [], nextAttemptAt: new Date(Date.now() + 60_000) });
+    const changes = provider(1);
+    expect(await reconcileWorker(config)).toBeGreaterThan(0);
+    expect(changes).toEqual([0]);
+    await database.db.update(scanEmails).set({ nextAttemptAt: new Date(0) });
+    await reconcileWorker(config);
+    expect(changes).toEqual([0, 1]);
+  });
+
+  it("releases the lock after an API failure so a later recovery attempt can wake the worker", async () => {
+    const { reconcileWorker } = await import("@/core/worker-control/reconcile");
+    await idleRuntime();
+    await fixture();
+    vi.stubGlobal("fetch", async () => new Response(null, { status: 503 }));
+    await expect(reconcileWorker(config)).rejects.toThrow();
+    const changes = provider(0);
+    await reconcileWorker(config);
+    expect(changes).toEqual([1]);
+  });
 });
 
 afterAll(async () => {
@@ -461,6 +569,39 @@ it("does not scan repositories owned by a different user", async () => {
   });
   expect(scan).not.toHaveBeenCalled();
 });
+
+it("notifies a warm worker immediately instead of waiting for its idle poll", async () => {
+  const connectionString = process.env.TEST_DATABASE_URL!;
+  const options = { connectionString, onError: () => {} };
+  const worker = createWorkerBoss(options);
+  const producer = createProducerBoss(options);
+  const queue = `notify-test-${randomUUID()}`;
+  const delivered = Promise.withResolvers<void>();
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await worker.start();
+    await worker.createQueue(queue, { notify: true });
+    await producer.start();
+    await worker.work(
+      queue,
+      { pollingIntervalSeconds: 60, notifyPollingIntervalSeconds: 60 },
+      async () => delivered.resolve(),
+    );
+    // Let the initial empty fetch finish; the next poll would be a minute away.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const timeout = new Promise<never>((_resolve, reject) => {
+      deadline = setTimeout(() => reject(new Error("LISTEN/NOTIFY did not wake the worker")), 3000);
+    });
+    await producer.send(queue, { test: true });
+    await Promise.race([delivered.promise, timeout]);
+  } finally {
+    clearTimeout(deadline);
+    await worker.offWork(queue);
+    await worker.deleteQueue(queue);
+    await producer.stop();
+    await worker.stop();
+  }
+}, 10_000);
 
 it.each([
   ["transferred", { owner: { id: 99 } }],

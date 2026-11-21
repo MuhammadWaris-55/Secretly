@@ -13,7 +13,7 @@ interface BossOptions {
 
 /** Worker side: runs schema migrations and queue maintenance. Only the worker does this. */
 export function createWorkerBoss({ connectionString, onError }: BossOptions): PgBoss {
-  const boss = new PgBoss({ connectionString, max: 5 });
+  const boss = new PgBoss({ connectionString, max: 5, useListenNotify: true });
   boss.on("error", onError);
   return boss;
 }
