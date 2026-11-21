@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { ArrowUpRight, GitFork } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { Suspense } from "react";
 import { ScanRepoButton } from "@/components/scan-repo-button";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { db } from "@/core/db/client";
 import { repos, scans } from "@/core/db/schema";
 import { getSession } from "@/lib/session";
+import { wakeWorkerController } from "@/lib/worker-controller";
 import { ScanStatusRefresh } from "./scan-status-refresh";
 
 type ScanState = { status: "queued" | "running" | "done" | "failed"; findingsCount: number };
@@ -49,6 +51,7 @@ async function Account() {
     const status = scanByRepo.get(id)?.status;
     return status === "queued" || status === "running";
   });
+  if (hasActiveScans) after(() => wakeWorkerController());
 
   return (
     <>
@@ -70,6 +73,10 @@ async function Account() {
           Your public repositories{" "}
           <span className="ml-1 text-sm text-muted-foreground tabular-nums">{myRepos.length}</span>
         </h2>
+        <p className="text-xs text-muted-foreground">
+          Scans update automatically. The first scan after inactivity may take a little longer while
+          the scanner starts.
+        </p>
         {myRepos.length === 0 ? (
           <p className="secretly-workspace-panel p-5 text-sm text-muted-foreground">
             Click “Find my repositories” to get started.

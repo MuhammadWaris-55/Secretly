@@ -2,6 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { db } from "@/core/db/client";
 import { account, repos, user } from "@/core/db/schema";
 import { listPublicRepos } from "@/core/github/public-repos";
@@ -9,6 +10,7 @@ import { getSession } from "@/lib/session";
 import { z } from "zod";
 import { requestScan, type ScanRequestResult } from "@/core/jobs/request-scan";
 import { getProducerBoss } from "@/lib/boss";
+import { wakeWorkerController } from "@/lib/worker-controller";
 
 export type SyncResult = { ok: true; count: number } | { ok: false; message: string };
 
@@ -89,6 +91,7 @@ export async function startScan(input: unknown): Promise<StartScanResult> {
   } catch {
     return { ok: false, message: "Could not queue the scan. Please try again." };
   }
+  if (result.ok) after(() => wakeWorkerController(true));
   revalidatePath("/dashboard");
   return result;
 }
