@@ -1,0 +1,29 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "mkdir -p public",
+  "outputDirectory": "public",
+  "daemons": {
+    "scan-worker": {
+      "root": ".",
+      "entrypoint": "Dockerfile.worker",
+      "instances": {},
+      "resources": {
+        "requests": {
+          "memory": "2Gi"
+        }
+      },
+      "terminationGracePeriodSeconds": 910,
+      "livenessProbe": {
+        "httpGet": {
+          "port": 3001,
+          "path": "/healthz"
+        },
+        "initialDelaySeconds": 60,
+        "timeoutSeconds": 5,
+        "failureThreshold": 3
+      }
+    }
+  }
+}
