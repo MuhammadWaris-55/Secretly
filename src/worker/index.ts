@@ -18,6 +18,7 @@ const DRAIN_MS = SCAN_QUEUE_SETTINGS.expireInSeconds * 1000;
 const SHUTDOWN_LIMIT_MS = DRAIN_MS + 5000;
 
 async function main(): Promise<void> {
+  const startedAt = performance.now();
   const portVariable =
     process.argv.includes("--local") || process.env.WORKER_PORT !== undefined
       ? "WORKER_PORT"
@@ -120,7 +121,10 @@ async function main(): Promise<void> {
     if (!stopping) {
       if (emailConfig) emailTask = pollEmail(emailConfig);
       ready = true;
-      logger.info({ port }, "Scan worker ready");
+      logger.info(
+        { port, startupMs: Math.round(performance.now() - startedAt) },
+        "Scan worker ready",
+      );
     }
   }
 

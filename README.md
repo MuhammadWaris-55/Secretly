@@ -107,6 +107,67 @@ canonical repository name, and reported size (500 MiB limit). This unauthenticat
 metadata request shares GitHub's per-IP budget across workers. Factor that budget
 into staging load tests. [GitHub REST rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
 
+## Automatic worker capacity on Render + Vercel
+
+The optional controller runs inside the **long-lived Render web server**, not in
+a Vercel Function. Leave it disabled locally, on previews, and on the scanner.
+It starts one Vercel `scan-worker` instance after a scan is queued and keeps it
+warm for five minutes after work finishes. All scan states, including delayed
+retries, keep it running. Due emails also wake it; future email retries set a
+recovery timer. No scan or credential validation logic changes.
+
+To enable it:
+
+1. Apply the committed migration with `npm run db:migrate` using your deployment
+   database configuration. Migration `0006` adds only the worker idle clock.
+2. In the **Render web service** environment, add `WORKER_AUTOSCALE=true`,
+   `WORKER_VERCEL_TOKEN`, `WORKER_VERCEL_PROJECT_ID` (`prj_...`),
+   `WORKER_VERCEL_TEAM_ID` (`team_...`), and `WORKER_VERCEL_REGION`.
+   Find the project/team IDs in their Vercel settings. Create an access token
+   authorized to update that team's project. Keep it server-side and restrict
+   its scope and lifetime where available. Never use a `NEXT_PUBLIC_` variable.
+3. Set the region to the one you tested, preferably near Neon. The controller
+   owns **all regions** of this daemon and zeros other regions to avoid extra
+   instances. Do not share this daemon with another application or change its
+   scaling manually while management is enabled.
+4. Deploy the updated web and worker images. Keep the Vercel daemon's
+   `instances: {}` configuration. Existing dashboard scaling overrides are
+   corrected by the controller. Set `WORKER_IDLE_SECONDS` only if you want
+   another idle window (60–900 seconds; default 300).
+5. With local processes stopped, scan a fixture, wait at least six minutes after
+   completion, and confirm Vercel's desired instance count reaches zero. Scan
+   again and confirm it rises to one and completes without refreshing the page.
+   Record click-to-completion time for a cold and a warm scan. The worker's
+   ready log includes `startupMs`, which measures application initialization,
+   excluding Vercel's provisioning and image startup time.
+
+Wake-up is requested after the queue transaction commits and after the web
+response, so the UI does not wait for a Vercel API request. Active dashboard
+refreshes also recover queued work. A Postgres advisory lock serializes capacity
+decisions across web replicas. A scan arriving during a stop triggers another
+check; graceful worker shutdown and pg-boss retries protect in-flight work.
+Warm workers use direct-connection LISTEN/NOTIFY to receive new jobs immediately,
+with polling retained as a fallback.
+
+The controller checks every 15 seconds while warm, and at the next email retry
+or every ten minutes while idle. This backs off database queries so Neon can
+sleep. It restarts automatically when Render starts. Timers cannot run while
+Render is asleep or suspended: keep the existing uptime monitor on `/api/health`
+if you want that service awake, subject to Render's own shared free-tier quota.
+Without an awake web service, queued work and retries recover on the next web
+startup; this is not an independent always-on scheduler.
+
+Vercel still provisions the stopped worker on the first scan: no instant cold
+start is promised. Use the same region for successive starts to avoid geographic
+changes. API errors are retried without dropping the queued scan and are logged
+without credentials or response bodies. Persistent API/configuration errors can
+leave capacity running or scans waiting, so monitor these logs and platform
+usage. Stopping idle instances saves quota; it does not remove monthly limits.
+
+To roll back, set `WORKER_AUTOSCALE=false` on Render and redeploy, then manually
+scale the Vercel daemon to one. Disabling management alone does not change the
+last scaling override.
+
 ## Postgres integration tests
 
 GitHub Actions runs `npm run test:integration` with a disposable Postgres service.
