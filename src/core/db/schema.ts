@@ -128,4 +128,11 @@ export const scanEmails = pgTable(
   (t) => [index("scan_emails_next_attempt_idx").on(t.nextAttemptAt)],
 );
 
+// Shared idle clock survives web restarts and coordinates multiple web replicas.
+export const workerRuntime = pgTable("worker_runtime", {
+  id: text("id").primaryKey(),
+  lastBusyAt: timestamp("last_busy_at", { withTimezone: true }).notNull().defaultNow(),
+  wasBusy: boolean("was_busy").notNull().default(false),
+});
+
 export * from "./auth-schema";
