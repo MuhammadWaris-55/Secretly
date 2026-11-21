@@ -43,6 +43,13 @@
       "when": 1795115079637,
       "tag": "0005_scan-admission-window",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795254837784,
+      "tag": "0006_lowly_turbo",
+      "breakpoints": true
     }
   ]
 }
